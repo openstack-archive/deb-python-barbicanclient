@@ -1,0 +1,37 @@
+Source: python-barbicanclient
+Section: python
+Priority: optional
+Maintainer: PKG OpenStack <openstack-devel@lists.alioth.debian.org>
+Uploaders: Thomas Goirand <zigo@debian.org>
+Build-Depends: debhelper (>= 9),
+               openstack-pkg-tools,
+               python-all (>= 2.6.6-3~),
+               python-pbr,
+               python-setuptools
+Build-Depends-Indep: python-coverage (>= 3.6),
+                     python-hacking (>= 0.7.0),
+                     python-httpretty (>= 0.8.0),
+                     python-mock (>= 1.0.1),
+                     python-testtools (>= 0.9.32),
+                     subunit,
+                     testrepository (>= 0.0.17)
+Standards-Version: 3.9.5
+Vcs-Browser: http://anonscm.debian.org/gitweb/?p=openstack/python-barbicanclient.git
+Vcs-Git: git://anonscm.debian.org/openstack/python-barbicanclient.git
+Homepage: https://github.com/openstack/barbican
+
+Package: python-barbicanclient
+Architecture: all
+Pre-Depends: dpkg (>= 1.15.6~)
+Depends: python-keystoneclient (>= 1:0.9.0),
+         python-pbr,
+         python-requests (>= 1.2.3),
+         python-six (>= 1.5.2),
+         ${misc:Depends},
+         ${python:Depends}
+Description: OpenStack Key Management API client - Python 2.x
+ This is a client for the Barbican Key Management API. This package includes a
+ Python library for accessing the API (the barbicanclient module), and a
+ command-line script (barbican).
+ .
+ This package contains the Python 2.x module.

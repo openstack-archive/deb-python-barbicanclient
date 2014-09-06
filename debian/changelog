@@ -1,0 +1,5 @@
+python-barbicanclient (2.2.1-1) unstable; urgency=medium
+
+  * Initial release. (Closes: #760632)
+
+ -- Thomas Goirand <zigo@debian.org>  Sat, 06 Sep 2014 17:21:41 +0800

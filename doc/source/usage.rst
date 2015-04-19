@@ -32,19 +32,23 @@ class that is exposed as the `secrets` attribute of the Client.
 
 Example::
 
-    # Create a random encryption key and store it in Barbican
+    # Store a random text password in Barbican
 
-    import base64
-    import os
     from barbicanclient import client
+    import random
+    import string
+
+    def random_password(length):
+        sys_random = random.SystemRandom()
+        return u''.join(
+            sys_random.choice(string.ascii_letters + string.digits) for _ in range(length)
+        )
 
     barbican = client.Client(...)
 
     my_secret = barbican.secrets.create()
-    my_secret.name = 'Encryption Key'
-    my_secret.payload = base64.b64encode(os.urandom(32))
-    my_secret.payload_content_type = 'application/octet-stream'
-    my_secret.payload_content_encoding = 'base64'
+    my_secret.name = u'Random plain text password'
+    my_secret.payload = random_password(24)
 
     my_secret_ref = my_secret.store()
 
@@ -56,7 +60,32 @@ Example::
     # Retrieve Secret from secret reference
 
     retrieved_secret = barbican.secrets.get(my_secret_ref)
-    key = retrieved_secret.payload
+    my_password = retrieved_secret.payload
+
+Secret Content Types
+--------------------
+
+The Barbican service defines a Secret Content Type.  The client will choose
+the correct Content Type based on the type of the data that is set on the
+`Secret.payload` property.  The following table summarizes the mapping of
+Python types to Barbican Secret Content Types:
+
++-----------------+---------------+---------------+--------------------------+
+|    six Type     | Python 2 Type | Python 3 Type |  Barbican Content Type   |
++=================+===============+===============+==========================+
+| six.binary_type |      str      |     bytes     | application/octet-stream |
++-----------------+---------------+---------------+--------------------------+
+| six.text_type   |    unicode    |      str      |        text/plain        |
++-----------------+---------------+---------------+--------------------------+
+
+.. WARNING::
+   Previous versions of python-barbicanclient allowed the user to set the
+   `payload_content_type` and `payload_content_encoding` properties for any
+   secret.  This can lead to unexpected behavior such as changing a unicode
+   string back to a byte string in Python 2, and dropping the base64 encoding
+   of a binary secret as in Launchpad Bug #1419166.
+   Because of this, manually setting the `payload_content_type` and the
+   `payload_content_encoding` has been deprecated.
 
 Orders
 ======
@@ -83,7 +112,7 @@ Example::
 
     my_order_ref = my_order.submit()
 
-The order reference returned by :meth:`barbicanclient.orders.Order.submit()`
+The order reference returned by :meth:`barbicanclient.orders.Order.submit`
 can later be used to retrieve the order from Barbican.
 
 Example::

@@ -12,13 +12,15 @@
 # implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import base64
 import functools
 import logging
+
+from oslo_utils.timeutils import parse_isotime
 import six
 
-from oslo.utils.timeutils import parse_isotime
-
 from barbicanclient import base
+from barbicanclient import exceptions
 from barbicanclient import formatter
 
 
@@ -71,7 +73,8 @@ class SecretFormatter(formatter.EntityFormatter):
 
 class Secret(SecretFormatter):
     """
-    Secrets are used to keep track of the data stored in Barbican.
+    Secrets represent keys, credentials, and other sensitive data that is
+    stored by the Barbican service.
     """
     _entity = 'secrets'
 
@@ -79,7 +82,12 @@ class Secret(SecretFormatter):
                  bit_length=None, mode=None, payload=None,
                  payload_content_type=None, payload_content_encoding=None,
                  secret_ref=None, created=None, updated=None,
-                 content_types=None, status=None):
+                 content_types=None, status=None, secret_type=None):
+        """
+        Secret objects should not be instantiated directly.  You should use
+        the `create` or `get` methods of the
+        :class:`barbicanclient.secrets.SecretManager` instead.
+        """
         self._api = api
         self._secret_ref = secret_ref
         self._fill_from_data(
@@ -163,7 +171,10 @@ class Secret(SecretFormatter):
 
     @property
     def payload(self):
-        if not self._payload:
+        """
+        Lazy-loaded property that holds the unencrypted data
+        """
+        if self._payload is None and self.secret_ref is not None:
             self._fetch_payload()
         return self._payload
 
@@ -200,11 +211,21 @@ class Secret(SecretFormatter):
     @payload_content_type.setter
     @immutable_after_save
     def payload_content_type(self, value):
+        LOG.warning(
+            'DEPRECATION WARNING: Manually setting the payload_content_type '
+            'can lead to unexpected results.  It will be removed in a future '
+            'release.  See Launchpad Bug #1419166.'
+        )
         self._payload_content_type = value
 
     @payload_content_encoding.setter
     @immutable_after_save
     def payload_content_encoding(self, value):
+        LOG.warning(
+            'DEPRECATION WARNING: Manually setting the '
+            'payload_content_encoding can lead to unexpected results.  It '
+            'will be removed in a future release.  See Launchpad Bug #1419166.'
+        )
         self._payload_content_encoding = value
 
     def _fetch_payload(self):
@@ -215,20 +236,67 @@ class Secret(SecretFormatter):
                              "secret does not specify a 'default' "
                              "content-type.")
         headers = {'Accept': self.payload_content_type}
-        self._payload = self._api._get_raw(self._secret_ref, headers)
+
+        if self._secret_ref[-1] != "/":
+            payload_url = self._secret_ref + '/payload'
+        else:
+            payload_url = self._secret_ref + 'payload'
+        payload = self._api._get_raw(payload_url, headers)
+        if self.payload_content_type == u'text/plain':
+            self._payload = payload.decode('UTF-8')
+        else:
+            self._payload = payload
 
     @immutable_after_save
     def store(self):
-        secret_dict = base.filter_empty_keys({
+        """
+        Stores the Secret in Barbican.  New Secret objects are not persisted
+        in Barbican until this method is called.
+
+        :raises: PayloadException
+        """
+        secret_dict = {
             'name': self.name,
-            'payload': self.payload,
-            'payload_content_type': self.payload_content_type,
-            'payload_content_encoding': self.payload_content_encoding,
             'algorithm': self.algorithm,
             'mode': self.mode,
             'bit_length': self.bit_length,
             'expiration': self.expiration
-        })
+        }
+
+        if not self.payload:
+            raise exceptions.PayloadException("Missing Payload")
+        if not isinstance(self.payload, (six.text_type, six.binary_type)):
+            raise exceptions.PayloadException("Invalid Payload Type")
+        if self.payload_content_type or self.payload_content_encoding:
+            """
+            Setting the payload_content_type and payload_content_encoding
+            manually is deprecated.  This clause of the if statement is here
+            for backwards compatibility and should be removed in a future
+            release.
+            """
+            secret_dict['payload'] = self.payload
+            secret_dict['payload_content_type'] = self.payload_content_type
+            secret_dict['payload_content_encoding'] = (
+                self.payload_content_encoding
+            )
+        elif type(self.payload) is six.binary_type:
+            """
+            six.binary_type is stored as application/octet-stream
+            and it is base64 encoded for a one-step POST
+            """
+            secret_dict['payload'] = (
+                base64.b64encode(self.payload)
+            ).decode('UTF-8')
+            secret_dict['payload_content_type'] = u'application/octet-stream'
+            secret_dict['payload_content_encoding'] = u'base64'
+        elif type(self.payload) is six.text_type:
+            """
+            six.text_type is stored as text/plain
+            """
+            secret_dict['payload'] = self.payload
+            secret_dict['payload_content_type'] = u'text/plain'
+
+        secret_dict = base.filter_null_keys(secret_dict)
 
         LOG.debug("Request body: {0}".format(secret_dict))
 
@@ -239,6 +307,9 @@ class Secret(SecretFormatter):
         return self.secret_ref
 
     def delete(self):
+        """
+        Deletes the Secret from Barbican
+        """
         if self._secret_ref:
             self._api._delete(self._secret_ref)
             self._secret_ref = None
@@ -306,17 +377,21 @@ class Secret(SecretFormatter):
 
 
 class SecretManager(base.BaseEntityManager):
+    """Entity Manager for Secret entities"""
 
     def __init__(self, api):
         super(SecretManager, self).__init__(api, 'secrets')
 
     def get(self, secret_ref, payload_content_type=None):
         """
-        Get a Secret
+        Retrieve an existing Secret from Barbican
 
-        :param secret_ref: Full HATEOAS reference to a Secret
-        :param payload_content_type: Content type to use for payload decryption
-        :returns: Secret
+        :param str secret_ref: Full HATEOAS reference to a Secret
+        :param str payload_content_type: DEPRECATED: Content type to use for
+            payload decryption. Setting this can lead to unexpected results.
+            See Launchpad Bug #1419166.
+        :returns: Secret object retrieved from Barbican
+        :rtype: :class:`barbicanclient.secrets.Secret`
         """
         LOG.debug("Getting secret - Secret href: {0}".format(secret_ref))
         base.validate_ref(secret_ref, 'Secret')
@@ -330,17 +405,25 @@ class SecretManager(base.BaseEntityManager):
                payload_content_type=None, payload_content_encoding=None,
                algorithm=None, bit_length=None, mode=None, expiration=None):
         """
-        Create a Secret
+        Factory method for creating new `Secret` objects
+
+        Secrets returned by this method have not yet been stored in the
+        Barbican service.
 
         :param name: A friendly name for the Secret
         :param payload: The unencrypted secret data
-        :param payload_content_type: The format/type of the secret data
-        :param payload_content_encoding: The encoding of the secret data
+        :param payload_content_type: DEPRECATED: The format/type of the secret
+            data. Setting this can lead to unexpected results.  See Launchpad
+            Bug #1419166.
+        :param payload_content_encoding: DEPRECATED: The encoding of the secret
+            data. Setting this can lead to unexpected results.  See Launchpad
+            Bug #1419166.
         :param algorithm: The algorithm associated with this secret key
         :param bit_length: The bit length of this secret key
         :param mode: The algorithm mode used with this secret key
         :param expiration: The expiration time of the secret in ISO 8601 format
-        :returns: Secret
+        :returns: A new Secret object
+        :rtype: :class:`barbicanclient.secrets.Secret`
         """
         return Secret(api=self._api, name=name, payload=payload,
                       payload_content_type=payload_content_type,
@@ -350,10 +433,11 @@ class SecretManager(base.BaseEntityManager):
 
     def delete(self, secret_ref):
         """
-        Delete a Secret
+        Delete a Secret from Barbican
 
-        :param secret_ref: The href for the secret
+        :param secret_ref: The href for the secret to be deleted
         """
+        base.validate_ref(secret_ref, 'Secret')
         if not secret_ref:
             raise ValueError('secret_ref is required.')
         self._api._delete(secret_ref)
@@ -361,7 +445,10 @@ class SecretManager(base.BaseEntityManager):
     def list(self, limit=10, offset=0, name=None, algorithm=None,
              mode=None, bits=0):
         """
-        List all Secrets for the project
+        List Secrets for the project
+
+        This method uses the limit and offset parameters for paging,
+        and also supports filtering.
 
         :param limit: Max number of secrets returned
         :param offset: Offset secrets to begin list
@@ -369,7 +456,9 @@ class SecretManager(base.BaseEntityManager):
         :param algorithm: Algorithm filter for the list
         :param mode: Mode filter for the list
         :param bits: Bits filter for the list
-        :returns: list of Secret metadata objects
+        :returns: list of Secret objects that satisfy the provided filter
+            criteria.
+        :rtype: list
         """
         LOG.debug('Listing secrets - offset {0} limit {1}'.format(offset,
                                                                   limit))

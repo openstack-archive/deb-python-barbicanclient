@@ -1,4 +1,4 @@
-# Copyright (c) 2013 Rackspace, Inc.
+# Copyright (c) 2015 Rackspace, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,23 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Configuration setup for Barbican Client.
-"""
 
-import os
-import sys
-
-from barbicanclient.version import __version__
-from oslo_config import cfg
-
-CONF = cfg.CONF
+class BarbicanException(Exception):
+    pass
 
 
-def parse_args(args=None, usage=None, default_config_files=None):
-    CONF(args=args,
-         project='barbicanclient',
-         prog='barbicanclient',
-         version=__version__,
-         usage=usage,
-         default_config_files=default_config_files)
+class PayloadException(BarbicanException):
+    pass

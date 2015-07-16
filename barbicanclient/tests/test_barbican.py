@@ -12,72 +12,64 @@
 # implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import os
-import sys
-
-from requests_mock.contrib import fixture
 import six
-import testtools
-import uuid
-import json
 
+from barbicanclient import barbican as barb
 from barbicanclient.tests import keystone_client_fixtures
 from barbicanclient.tests import test_client
-import barbicanclient.barbican
+from barbicanclient.barbican import Barbican
 
 
 class WhenTestingBarbicanCLI(test_client.BaseEntityResource):
 
     def setUp(self):
         self._setUp('barbican')
-        self.global_file = six.StringIO()
+        self.captured_stdout = six.StringIO()
+        self.captured_stderr = six.StringIO()
+        self.barbican = Barbican(
+            stdout=self.captured_stdout,
+            stderr=self.captured_stderr
+        )
+        self.parser = self.barbican.build_option_parser('desc', 'vers')
 
-    def barbican(self, argstr):
-        """Source: Keystone client's shell method in test_shell.py"""
-        clean_env = {}
-        _old_env, os.environ = os.environ, clean_env.copy()
-        exit_code = 1
-        try:
-            stdout = self.global_file
-            _barbican = barbicanclient.barbican.Barbican(stdout=stdout,
-                                                         stderr=stdout)
-            exit_code = _barbican.run(argv=argstr.split())
-        except Exception as exception:
-            exit_message = exception.message
-        except SystemExit as sys_exit_exception:
-            exit_code = sys_exit_exception.code
-        finally:
-            out = stdout.getvalue()
-            os.environ = _old_env
-        return exit_code, out
+    def assert_client_raises(self, args, message):
+        argv, remainder = self.parser.parse_known_args(args.split())
+        e = self.assertRaises(
+            Exception, self.barbican.create_client, argv
+        )
+        self.assertIn(message, str(e))
 
-    def test_should_show_usage_error_with_no_args(self):
-        args = ""
-        exit_code, out = self.barbican(args)
-        self.assertEqual(1, exit_code)
-        self.assertIn('usage:', out)
+    def create_and_assert_client(self, args):
+        argv, remainder = self.parser.parse_known_args(args.split())
+
+        client = self.barbican.create_client(argv)
+        self.assertIsNotNone(client)
+        return client
 
     def test_should_show_usage_with_help_flag(self):
-        args = "-h"
-        exit_code, out = self.barbican(args)
-        self.assertEqual(0, exit_code)
-        self.assertIn('usage: ', out)
+        e = self.assertRaises(SystemExit, self.parser.parse_known_args, ['-h'])
+        self.assertEqual(0, e.code)
+        self.assertIn('usage', self.captured_stdout.getvalue())
+
+    def test_should_show_usage_with_no_args(self):
+        exit_code = self.barbican.run([])
+        self.assertEquals(1, exit_code)
+        self.assertIn('usage', self.captured_stderr.getvalue())
 
     def test_should_error_if_noauth_and_authurl_both_specified(self):
         args = "--no-auth --os-auth-url http://localhost:5000/v3"
-        exit_code, out = self.barbican(args)
-        self.assertEqual(1, exit_code)
-        self.assertIn(
+        message = (
             'ERROR: argument --os-auth-url/-A: not allowed with '
-            'argument --no-auth/-N', out)
+            'argument --no-auth/-N'
+        )
+        self.assert_client_raises(args, message)
 
     def _expect_error_with_invalid_noauth_args(self, args):
-        exit_code, out = self.barbican(args)
-        self.assertEqual(1, exit_code)
-        expected_err_msg = 'ERROR: please specify --endpoint '\
-                           'and --os-project-id(or --os-tenant-id)\n'
-        self.assertIn(expected_err_msg, out)
+        expected_err_msg = (
+            'ERROR: please specify --endpoint '
+            'and --os-project-id (or --os-tenant-id)'
+        )
+        self.assert_client_raises(args, expected_err_msg)
 
     def test_should_error_if_noauth_and_missing_endpoint_tenantid_args(self):
         self._expect_error_with_invalid_noauth_args("--no-auth secret list")
@@ -88,102 +80,102 @@ class WhenTestingBarbicanCLI(test_client.BaseEntityResource):
         self._expect_error_with_invalid_noauth_args(
             "--no-auth --os-project-id 123 secret list")
 
-    def _expect_success_code(self, args):
-        exit_code, out = self.barbican(args)
-        self.assertEqual(0, exit_code)
-
-    def _expect_failure_code(self, args, code=1):
-        exit_code, out = self.barbican(args)
-        self.assertEqual(code, exit_code)
-
-    def _assert_status_code_and_msg(self, args, expected_msg, code=1):
-        exit_code, out = self.barbican(args)
-        self.assertEqual(code, exit_code)
-        self.assertIn(expected_msg, out)
-
     def test_should_succeed_if_noauth_with_valid_args_specified(self):
+        args = (
+            '--no-auth --endpoint {0} --os-tenant-id {1}'
+            'secret list'.format(self.endpoint, self.project_id)
+        )
         list_secrets_url = '{0}/v1/secrets'.format(self.endpoint)
-
         self.responses.get(list_secrets_url, json={"secrets": [], "total": 0})
-
-        self._expect_success_code(
-            "--no-auth --endpoint {0} --os-tenant-id {1} secret list".
-            format(self.endpoint, self.project_id))
+        client = self.create_and_assert_client(args)
+        secret_list = client.secrets.list()
+        self.assertTrue(self.responses._adapter.called)
+        self.assertEqual(1, self.responses._adapter.call_count)
+        self.assertEqual([], secret_list)
 
     def test_should_error_if_required_keystone_auth_arguments_are_missing(
             self):
-        expected_error_msg = 'ERROR: please specify authentication credentials'
-        self._assert_status_code_and_msg(
+        expected_error_msg = (
+            'ERROR: please specify the following --os-project-id or'
+            ' (--os-project-name and --os-project-domain-name) or '
+            ' (--os-project-name and --os-project-domain-id)'
+        )
+        self.assert_client_raises(
             '--os-auth-url http://localhost:35357/v2.0 secret list',
             expected_error_msg)
-        self._assert_status_code_and_msg('--os-auth-url '
-                                         'http://localhost:35357/v2.0 '
-                                         '--os-username barbican '
-                                         '--os-password barbican '
-                                         'secret list', expected_error_msg)
+        self.assert_client_raises(
+            '--os-auth-url http://localhost:35357/v2.0 --os-username barbican '
+            '--os-password barbican secret list',
+            expected_error_msg
+        )
+
+    def test_check_auth_arguments_v2(self):
+        args = ("--os-username 'bob' --os-password 'jan' --os-auth-url 'boop'"
+                " --os-tenant-id 123 --os-identity-api-version '2.0'")
+        argv, remainder = self.parser.parse_known_args(args.split())
+        api_version = argv.os_identity_api_version
+        barbican = Barbican()
+        response = barbican.check_auth_arguments(argv, api_version)
+        self.assertEqual(True, response)
+
+    def test_should_fail_check_auth_arguments_v2(self):
+        args = ("--os-username bob --os-password jan --os-auth-url boop"
+                " --os-identity-api-version 2.0")
+        message = 'ERROR: please specify --os-tenant-id or --os-tenant-name'
+        argv, remainder = self.parser.parse_known_args(args.split())
+        api_version = argv.os_identity_api_version
+        e = self.assertRaises(
+            Exception,
+            self.barbican.check_auth_arguments,
+            argv,
+            api_version,
+            True
+        )
+        self.assertIn(message, str(e))
+
+    def test_should_fail_create_client_with_no_auth_url(self):
+        args = '--os-auth-token 1234567890 --os-tenant-id 123'
+        message = 'ERROR: please specify --os-auth-url'
+        argv, remainder = self.parser.parse_known_args(args.split())
+        e = self.assertRaises(
+            Exception, self.barbican.create_client, argv
+        )
+        self.assertIn(message, str(e))
+
+    def test_should_fail_missing_credentials(self):
+        message = 'ERROR: please specify authentication credentials'
+        args = ''
+        argv, remainder = self.parser.parse_known_args(args.split())
+        e = self.assertRaises(
+            Exception, self.barbican.create_client, argv
+        )
+        self.assertIn(message, str(e))
+
+    def test_main(self):
+        args = ''
+        response = barb.main(args)
+        self.assertEqual(1, response)
 
 
-class TestBarbicanWithKeystoneClient(testtools.TestCase):
+class TestBarbicanWithKeystonePasswordAuth(
+        keystone_client_fixtures.KeystoneClientFixture):
 
     def setUp(self):
-        super(TestBarbicanWithKeystoneClient, self).setUp()
-        self.responses = self.useFixture(fixture.Fixture())
-        self.kwargs = {'auth_url': keystone_client_fixtures.V3_URL}
-        for arg in ['username', 'password', 'project_name',
-                    'user_domain_name', 'project_domain_name']:
-            self.kwargs[arg] = uuid.uuid4().hex
-        self.barbican = barbicanclient.barbican.Barbican()
+        super(TestBarbicanWithKeystonePasswordAuth, self).setUp()
 
-    def _to_argv(self, **kwargs):
-        """Format Keystone client arguments into command line argv."""
-        argv = []
-        for k, v in six.iteritems(kwargs):
-            argv.append('--os-' + k.replace('_', '-'))
-            argv.append(v)
-        return argv
+        self.test_arguments = {
+            '--os-username': 'some_user',
+            '--os-password': 'some_pass',
+        }
 
-    def _delete_secret(self, auth_url):
-        self.kwargs['auth_url'] = auth_url
-        argv = self._to_argv(**self.kwargs)
-        barbican_url = keystone_client_fixtures.BARBICAN_ENDPOINT
-        argv.append('--endpoint')
-        argv.append(barbican_url)
-        argv.append('secret')
-        argv.append('delete')
-        mySecretRef = '{0}/secrets/mysecretid'.format(barbican_url)
-        argv.append(mySecretRef)
-        # emulate delete secret
-        self.responses.delete(mySecretRef, status_code=204)
 
-        try:
-            self.barbican.run(argv=argv)
-        except:
-            self.fail('failed to delete secret')
+class TestBarbicanWithKeystoneTokenAuth(
+        keystone_client_fixtures.KeystoneClientFixture):
 
-    def test_v2_auth(self):
-        # emulate Keystone version discovery
-        self.responses.get(keystone_client_fixtures.V2_URL,
-                           body=keystone_client_fixtures.V2_VERSION_ENTRY)
+    def setUp(self):
+        super(TestBarbicanWithKeystoneTokenAuth, self).setUp()
 
-        # emulate Keystone v2 token request
-        self.responses.post(
-            '{0}/tokens'.format(keystone_client_fixtures.V2_URL),
-            json=keystone_client_fixtures.generate_v2_project_scoped_token())
-
-        self._delete_secret(keystone_client_fixtures.V2_URL)
-
-    def test_v3_auth(self):
-        # emulate Keystone version discovery
-        self.responses.get(keystone_client_fixtures.V3_URL,
-                           text=keystone_client_fixtures.V3_VERSION_ENTRY)
-
-        # emulate Keystone v3 token request
-        id, v3_token = \
-            keystone_client_fixtures.generate_v3_project_scoped_token()
-
-        self.responses.post(
-            '{0}/auth/tokens'.format(keystone_client_fixtures.V3_URL),
-            json=v3_token,
-            headers={'X-Subject-Token': '1234'})
-
-        self._delete_secret(keystone_client_fixtures.V3_URL)
+        self.test_arguments = {
+            '--os-auth-token': 'some_token',
+            '--os-project-id': 'some_project_id',
+        }

@@ -38,6 +38,8 @@ def immutable_after_save(func):
 class KeyOrderFormatter(formatter.EntityFormatter):
 
     columns = ("Order href",
+               "Type",
+               "Container href",
                "Secret href",
                "Created",
                "Status",
@@ -47,6 +49,8 @@ class KeyOrderFormatter(formatter.EntityFormatter):
 
     def _get_formatted_data(self):
         data = (self.order_ref,
+                "Key",
+                "N/A",
                 self.secret_ref,
                 self.created,
                 self.status,
@@ -59,7 +63,9 @@ class KeyOrderFormatter(formatter.EntityFormatter):
 class AsymmetricOrderFormatter(formatter.EntityFormatter):
 
     columns = ("Order href",
+               "Type",
                "Container href",
+               "Secret href",
                "Created",
                "Status",
                "Error code",
@@ -68,7 +74,34 @@ class AsymmetricOrderFormatter(formatter.EntityFormatter):
 
     def _get_formatted_data(self):
         data = (self.order_ref,
+                "Asymmetric",
                 self.container_ref,
+                "N/A",
+                self.created,
+                self.status,
+                self.error_status_code,
+                self.error_reason
+                )
+        return data
+
+
+class CertificateOrderFormatter(formatter.EntityFormatter):
+
+    columns = ("Order href",
+               "Type",
+               "Container href",
+               "Secret href",
+               "Created",
+               "Status",
+               "Error code",
+               "Error message"
+               )
+
+    def _get_formatted_data(self):
+        data = (self.order_ref,
+                "Certificate",
+                self.container_ref,
+                "N/A",
                 self.created,
                 self.status,
                 self.error_status_code,
@@ -89,12 +122,16 @@ class Order(object):
 
     def __init__(self, api, type, status=None, created=None, updated=None,
                  meta=None, order_ref=None, error_status_code=None,
-                 error_reason=None):
+                 error_reason=None, sub_status=None, sub_status_message=None,
+                 creator_id=None):
         super(Order, self).__init__()
 
         self._api = api
         self._type = type
         self._status = status
+        self._sub_status = sub_status
+        self._sub_status_message = sub_status_message
+        self._creator_id = creator_id
 
         if created:
             self._created = parse_isotime(created)
@@ -193,7 +230,7 @@ class Order(object):
         """
         order_dict = {'type': self._type, 'meta': self._meta}
         LOG.debug("Request body: {0}".format(order_dict))
-        response = self._api._post(self._entity, order_dict)
+        response = self._api.post(self._entity, json=order_dict)
         if response:
             self._order_ref = response.get('order_ref')
         return self._order_ref
@@ -203,7 +240,7 @@ class Order(object):
         Deletes the Order from Barbican
         """
         if self._order_ref:
-            self._api._delete(self._order_ref)
+            self._api.delete(self._order_ref)
             self._order_ref = None
         else:
             raise LookupError("Order is not yet stored.")
@@ -218,7 +255,8 @@ class KeyOrder(Order, KeyOrderFormatter):
     def __init__(self, api, name=None, algorithm=None, bit_length=None,
                  mode=None, expiration=None, payload_content_type=None,
                  status=None, created=None, updated=None, order_ref=None,
-                 secret_ref=None, error_status_code=None, error_reason=None):
+                 secret_ref=None, error_status_code=None, error_reason=None,
+                 sub_status=None, sub_status_message=None, creator_id=None):
         super(KeyOrder, self).__init__(
             api, self._type, status=status, created=created, updated=updated,
             meta={
@@ -226,7 +264,8 @@ class KeyOrder(Order, KeyOrderFormatter):
                 'expiration': expiration,
                 'payload_content_type': payload_content_type
             }, order_ref=order_ref, error_status_code=error_status_code,
-            error_reason=error_reason)
+            error_reason=error_reason, sub_status=sub_status,
+            sub_status_message=sub_status_message, creator_id=creator_id)
         self._secret_ref = secret_ref
         if mode:
             self._meta['mode'] = mode
@@ -257,10 +296,11 @@ class AsymmetricOrder(Order, AsymmetricOrderFormatter):
     _type = 'asymmetric'
 
     def __init__(self, api, name=None, algorithm=None, bit_length=None,
-                 pass_phrase=None, expiration=None, payload_content_type=None,
-                 status=None, created=None, updated=None, order_ref=None,
-                 container_ref=None, error_status_code=None,
-                 error_reason=None):
+                 mode=None, pass_phrase=None, expiration=None,
+                 payload_content_type=None, status=None, created=None,
+                 updated=None, order_ref=None, container_ref=None,
+                 error_status_code=None, error_reason=None, sub_status=None,
+                 sub_status_message=None, creator_id=None):
         super(AsymmetricOrder, self).__init__(
             api, self._type, status=status, created=created, updated=updated,
             meta={
@@ -268,7 +308,8 @@ class AsymmetricOrder(Order, AsymmetricOrderFormatter):
                 'expiration': expiration,
                 'payload_content_type': payload_content_type
             }, order_ref=order_ref, error_status_code=error_status_code,
-            error_reason=error_reason)
+            error_reason=error_reason, sub_status=sub_status,
+            sub_status_message=sub_status_message, creator_id=creator_id)
         self._container_ref = container_ref
         if pass_phrase:
             self._meta['pass_phrase'] = pass_phrase
@@ -292,6 +333,38 @@ class AsymmetricOrder(Order, AsymmetricOrderFormatter):
         return 'AsymmetricOrder(order_ref={0})'.format(self.order_ref)
 
 
+class CertificateOrder(Order, CertificateOrderFormatter):
+    _type = 'certificate'
+
+    def __init__(self, api, name=None,
+                 status=None, created=None, updated=None, order_ref=None,
+                 container_ref=None, error_status_code=None, error_reason=None,
+                 sub_status=None, sub_status_message=None, creator_id=None,
+                 request_type=None, subject_dn=None,
+                 source_container_ref=None, ca_id=None, profile=None,
+                 request_data=None):
+        super(CertificateOrder, self).__init__(
+            api, self._type, status=status, created=created, updated=updated,
+            meta={
+                'name': name,
+                'request_type': request_type,
+                'subject_dn': subject_dn,
+                'container_ref': source_container_ref,
+                'ca_id': ca_id,
+                'profile': profile,
+                'request_data': request_data
+            }, order_ref=order_ref, error_status_code=error_status_code,
+            error_reason=error_reason)
+        self._container_ref = container_ref
+
+    @property
+    def container_ref(self):
+        return self._container_ref
+
+    def __repr__(self):
+        return 'CertificateOrder(order_ref={0})'.format(self.order_ref)
+
+
 class OrderManager(base.BaseEntityManager):
     """
     Entity Manager for Order entitites
@@ -299,7 +372,8 @@ class OrderManager(base.BaseEntityManager):
 
     _order_type_to_class_map = {
         'key': KeyOrder,
-        'asymmetric': AsymmetricOrder
+        'asymmetric': AsymmetricOrder,
+        'certificate': CertificateOrder
     }
 
     def __init__(self, api):
@@ -311,11 +385,14 @@ class OrderManager(base.BaseEntityManager):
 
         :param order_ref: Full HATEOAS reference to an Order
         :returns: An instance of the appropriate subtype of Order
+        :raises barbicanclient.exceptions.HTTPAuthError: 401 Responses
+        :raises barbicanclient.exceptions.HTTPClientError: 4xx Responses
+        :raises barbicanclient.exceptions.HTTPServerError: 5xx Responses
         """
         LOG.debug("Getting order - Order href: {0}".format(order_ref))
         base.validate_ref(order_ref, 'Order')
         try:
-            response = self._api._get(order_ref)
+            response = self._api.get(order_ref)
         except AttributeError:
             raise LookupError(
                 'Order {0} could not be found.'.format(order_ref)
@@ -326,12 +403,15 @@ class OrderManager(base.BaseEntityManager):
         resp_type = response.pop('type').lower()
         order_type = self._order_type_to_class_map.get(resp_type)
 
+        if (resp_type == 'certificate' and
+                'container_ref' in response.get('meta', ())):
+            response['source_container_ref'] = response['meta'].pop(
+                'container_ref')
+
         response.update(response.pop('meta'))
 
-        if order_type is KeyOrder:
-            return KeyOrder(self._api, **response)
-        elif order_type is AsymmetricOrder:
-            return AsymmetricOrder(self._api, **response)
+        if order_type is not None:
+            return order_type(self._api, **response)
         else:
             raise TypeError('Unknown Order type "{0}"'.format(order_type))
 
@@ -358,6 +438,9 @@ class OrderManager(base.BaseEntityManager):
         :param expiration: The expiration time of the secret in ISO 8601 format
         :returns: KeyOrder
         :rtype: :class:`barbicanclient.orders.KeyOrder`
+        :raises barbicanclient.exceptions.HTTPAuthError: 401 Responses
+        :raises barbicanclient.exceptions.HTTPClientError: 4xx Responses
+        :raises barbicanclient.exceptions.HTTPServerError: 5xx Responses
         """
         return KeyOrder(api=self._api, name=name,
                         algorithm=algorithm, bit_length=bit_length, mode=mode,
@@ -381,11 +464,42 @@ class OrderManager(base.BaseEntityManager):
         :param expiration: The expiration time of the secret in ISO 8601 format
         :returns: AsymmetricOrder
         :rtype: :class:`barbicanclient.orders.AsymmetricOrder`
+        :raises barbicanclient.exceptions.HTTPAuthError: 401 Responses
+        :raises barbicanclient.exceptions.HTTPClientError: 4xx Responses
+        :raises barbicanclient.exceptions.HTTPServerError: 5xx Responses
         """
         return AsymmetricOrder(api=self._api, name=name, algorithm=algorithm,
                                bit_length=bit_length, pass_phrase=pass_phrase,
                                payload_content_type=payload_content_type,
                                expiration=expiration)
+
+    def create_certificate(self, name=None, request_type=None, subject_dn=None,
+                           source_container_ref=None, ca_id=None,
+                           profile=None, request_data=None):
+        """
+        Factory method for `CertificateOrder` objects
+
+        `CertificateOrder` objects returned by this method have not yet been
+        submitted to the Barbican service.
+
+        :param name: A friendly name for the container to be created
+        :param request_type: The type of the certificate request
+        :param subject_dn: A subject for the certificate
+        :param source_container_ref: A container with a public/private key pair
+            to use as source for stored-key requests
+        :param ca_id: The identifier of the CA to use
+        :param profile: The profile of certificate to use
+        :param request_data: The CSR content
+        :returns: CertificateOrder
+        :rtype: :class:`barbicanclient.orders.CertificateOrder`
+        """
+        return CertificateOrder(api=self._api, name=name,
+                                request_type=request_type,
+                                subject_dn=subject_dn,
+                                source_container_ref=source_container_ref,
+                                ca_id=ca_id,
+                                profile=profile,
+                                request_data=request_data)
 
     def delete(self, order_ref):
         """
@@ -395,7 +509,7 @@ class OrderManager(base.BaseEntityManager):
         """
         if not order_ref:
             raise ValueError('order_ref is required.')
-        self._api._delete(order_ref)
+        self._api.delete(order_ref)
 
     def list(self, limit=10, offset=0):
         """
@@ -406,12 +520,14 @@ class OrderManager(base.BaseEntityManager):
         :param limit: Max number of orders returned
         :param offset: Offset orders to begin list
         :returns: list of Order objects
+        :raises barbicanclient.exceptions.HTTPAuthError: 401 Responses
+        :raises barbicanclient.exceptions.HTTPClientError: 4xx Responses
+        :raises barbicanclient.exceptions.HTTPServerError: 5xx Responses
         """
         LOG.debug('Listing orders - offset {0} limit {1}'.format(offset,
                                                                  limit))
-        href = '{0}/{1}'.format(self._api._base_url, self._entity)
         params = {'limit': limit, 'offset': offset}
-        response = self._api._get(href, params)
+        response = self._api.get(self._entity, params=params)
 
         return [
             self._create_typed_order(o) for o in response.get('orders', [])

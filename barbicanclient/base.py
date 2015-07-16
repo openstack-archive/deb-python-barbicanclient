@@ -17,22 +17,24 @@ Base utilities to build API operation managers.
 """
 import uuid
 
-import six
-
 
 def filter_null_keys(dictionary):
     return dict(((k, v) for k, v in dictionary.items() if v is not None))
 
 
 def validate_ref(ref, entity):
+    """Verifies that there is a real uuid at the end of the uri
+
+    :return: Returns True for easier testing
+    :raises ValueError: If it cannot correctly parse the uuid in the ref.
+    """
     try:
-        # Split out the UUID from the ref URL
-        url = six.moves.urllib.parse.urlparse(ref)
-        parts = url.path.rstrip('/').split('/')
-        # Attempt to load the UUID with uuid, which will raise if invalid
-        uuid.UUID(parts[-1])
+        _, entity_uuid = ref.rstrip('/').rsplit('/', 1)
+        uuid.UUID(entity_uuid)
     except:
         raise ValueError('{0} incorrectly specified.'.format(entity))
+
+    return True
 
 
 class ImmutableException(Exception):
@@ -50,8 +52,7 @@ class BaseEntityManager(object):
         """
         Returns the total number of entities stored in Barbican.
         """
-        href = '{0}/{1}'.format(self._api._base_url, self._entity)
         params = {'limit': 0, 'offset': 0}
-        resp = self._api._get(href, params)
+        resp = self._api.get(self._entity, params=params)
 
         return resp['total']

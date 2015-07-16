@@ -19,6 +19,7 @@ from requests_mock.contrib import fixture
 import testtools
 
 from barbicanclient import client
+from barbicanclient import exceptions
 
 
 class TestClient(testtools.TestCase):
@@ -36,20 +37,14 @@ class TestClient(testtools.TestCase):
 
 class WhenTestingClientInit(TestClient):
 
-    def test_can_be_used_without_a_session(self):
-        c = client._HTTPClient(session=self.session,
-                               endpoint=self.endpoint,
-                               project_id=self.project_id)
-        self.assertIsNotNone(c._session)
-
     def test_api_version_is_appended_to_endpoint(self):
         c = client._HTTPClient(session=self.session,
                                endpoint=self.endpoint,
                                project_id=self.project_id)
-        self.assertEqual(c._base_url, 'http://localhost:9311/v1')
+        self.assertEqual(c.endpoint_override, 'http://localhost:9311/v1')
 
     def test_default_headers_are_empty(self):
-        c = client._HTTPClient(self.session, self.endpoint)
+        c = client._HTTPClient(session=self.session, endpoint=self.endpoint)
         self.assertIsInstance(c._default_headers, dict)
         self.assertFalse(bool(c._default_headers))
 
@@ -68,57 +63,48 @@ class WhenTestingClientInit(TestClient):
         self.assertRaises(ValueError, client.Client,
                           **{"endpoint": self.endpoint})
 
-    def test_client_strips_trailing_slash_from_endpoint(self):
-        c = client._HTTPClient(session=self.session,
-                               endpoint=self.endpoint + '/',
-                               project_id=self.project_id)
-        self.assertEqual(c._barbican_endpoint, self.endpoint)
-
-    def test_base_url_starts_with_endpoint_url(self):
+    def test_endpoint_override_starts_with_endpoint_url(self):
         c = client._HTTPClient(session=self.session,
                                endpoint=self.endpoint,
                                project_id=self.project_id)
-        self.assertTrue(c._base_url.startswith(self.endpoint))
+        self.assertTrue(c.endpoint_override.startswith(self.endpoint))
 
-    def test_base_url_ends_with_default_api_version(self):
+    def test_endpoint_override_ends_with_default_api_version(self):
         c = client._HTTPClient(session=self.session,
                                endpoint=self.endpoint,
                                project_id=self.project_id)
-        self.assertTrue(c._base_url.endswith(client._DEFAULT_API_VERSION))
-
-    def test_gets_endpoint_from_keystone_session(self):
-        c = client._HTTPClient(session=self.session,
-                               endpoint=self.endpoint)
-        self.assertEqual(c._barbican_endpoint, self.endpoint)
+        self.assertTrue(
+            c.endpoint_override.endswith(client._DEFAULT_API_VERSION))
 
 
 class WhenTestingClientPost(TestClient):
 
     def setUp(self):
         super(WhenTestingClientPost, self).setUp()
-        self.httpclient = client._HTTPClient(self.session, self.endpoint)
+        self.httpclient = client._HTTPClient(session=self.session,
+                                             endpoint=self.endpoint)
         self.href = self.endpoint + '/v1/secrets/'
         self.post_mock = self.responses.post(self.href, json={})
 
     def test_post_normalizes_url_with_traling_slash(self):
-        self.httpclient._post(path='secrets', data={'test_data': 'test'})
+        self.httpclient.post(path='secrets', json={'test_data': 'test'})
         self.assertTrue(self.post_mock.last_request.url.endswith('/'))
 
     def test_post_includes_content_type_header_of_application_json(self):
-        self.httpclient._post(path='secrets', data={'test_data': 'test'})
+        self.httpclient.post(path='secrets', json={'test_data': 'test'})
         self.assertEqual('application/json',
                          self.post_mock.last_request.headers['Content-Type'])
 
     def test_post_includes_default_headers(self):
         self.httpclient._default_headers = {'Test-Default-Header': 'test'}
-        self.httpclient._post(path='secrets', data={'test_data': 'test'})
+        self.httpclient.post(path='secrets', json={'test_data': 'test'})
         self.assertEqual(
             'test',
             self.post_mock.last_request.headers['Test-Default-Header'])
 
     def test_post_checks_status_code(self):
         self.httpclient._check_status_code = mock.MagicMock()
-        self.httpclient._post(path='secrets', data={'test_data': 'test'})
+        self.httpclient.post(path='secrets', json={'test_data': 'test'})
         self.httpclient._check_status_code.assert_called()
 
 
@@ -126,56 +112,57 @@ class WhenTestingClientGet(TestClient):
 
     def setUp(self):
         super(WhenTestingClientGet, self).setUp()
-        self.httpclient = client._HTTPClient(self.session, self.endpoint)
+        self.httpclient = client._HTTPClient(session=self.session,
+                                             endpoint=self.endpoint)
         self.headers = dict()
         self.href = 'http://test_href/'
         self.get_mock = self.responses.get(self.href, json={})
 
     def test_get_uses_href_as_is(self):
-        self.httpclient._get(self.href)
+        self.httpclient.get(self.href)
         self.assertEqual(self.get_mock.last_request.url, self.href)
 
     def test_get_passes_params(self):
         params = {'test': 'test1'}
-        self.httpclient._get(self.href, params=params)
+        self.httpclient.get(self.href, params=params)
         self.assertEqual(self.get_mock.last_request.url.split('?')[0],
                          self.href)
         self.assertEqual(['test1'], self.get_mock.last_request.qs['test'])
 
     def test_get_includes_accept_header_of_application_json(self):
-        self.httpclient._get(self.href)
+        self.httpclient.get(self.href)
         self.assertEqual('application/json',
                          self.get_mock.last_request.headers['Accept'])
 
     def test_get_includes_default_headers(self):
         self.httpclient._default_headers = {'Test-Default-Header': 'test'}
-        self.httpclient._get(self.href)
+        self.httpclient.get(self.href)
         self.assertEqual(
             'test',
             self.get_mock.last_request.headers['Test-Default-Header'])
 
     def test_get_checks_status_code(self):
         self.httpclient._check_status_code = mock.MagicMock()
-        self.httpclient._get(self.href)
+        self.httpclient.get(self.href)
         self.httpclient._check_status_code.assert_called()
 
     def test_get_raw_uses_href_as_is(self):
-        self.httpclient._get_raw(self.href, self.headers)
+        self.httpclient._get_raw(self.href, headers=self.headers)
         self.assertEqual(self.get_mock.last_request.url, self.href)
 
     def test_get_raw_passes_headers(self):
-        self.httpclient._get_raw(self.href, {'test': 'test'})
+        self.httpclient._get_raw(self.href, headers={'test': 'test'})
         self.assertEqual('test', self.get_mock.last_request.headers['test'])
 
     def test_get_raw_includes_default_headers(self):
         self.httpclient._default_headers = {'Test-Default-Header': 'test'}
-        self.httpclient._get_raw(self.href, self.headers)
+        self.httpclient._get_raw(self.href, headers=self.headers)
         self.assertIn('Test-Default-Header',
                       self.get_mock.last_request.headers)
 
     def test_get_raw_checks_status_code(self):
         self.httpclient._check_status_code = mock.MagicMock()
-        self.httpclient._get_raw(self.href, self.headers)
+        self.httpclient._get_raw(self.href, headers=self.headers)
         self.httpclient._check_status_code.assert_called()
 
 
@@ -189,24 +176,24 @@ class WhenTestingClientDelete(TestClient):
         self.del_mock = self.responses.delete(self.href, status_code=204)
 
     def test_delete_uses_href_as_is(self):
-        self.httpclient._delete(self.href)
+        self.httpclient.delete(self.href)
         self.assertTrue(self.del_mock.called)
 
     def test_delete_passes_json(self):
         json = {"test": "test"}
-        self.httpclient._delete(self.href, json=json)
+        self.httpclient.delete(self.href, json=json)
         self.assertEqual(self.del_mock.last_request.text, '{"test": "test"}')
 
     def test_delete_includes_default_headers(self):
         self.httpclient._default_headers = {'Test-Default-Header': 'test'}
-        self.httpclient._delete(self.href)
+        self.httpclient.delete(self.href)
         self.assertEqual(
             'test',
             self.del_mock.last_request.headers['Test-Default-Header'])
 
     def test_delete_checks_status_code(self):
         self.httpclient._check_status_code = mock.MagicMock()
-        self.httpclient._delete(self.href)
+        self.httpclient.delete(self.href)
         self.httpclient._check_status_code.assert_called()
 
 
@@ -215,20 +202,20 @@ class WhenTestingCheckStatusCodes(TestClient):
     def test_raises_http_auth_error_for_401_response(self):
         resp = mock.MagicMock()
         resp.status_code = 401
-        self.assertRaises(client.HTTPAuthError,
+        self.assertRaises(exceptions.HTTPAuthError,
                           self.httpclient._check_status_code,
                           resp)
 
     def test_raises_http_server_error_for_500_response(self):
         resp = mock.MagicMock()
         resp.status_code = 500
-        self.assertRaises(client.HTTPServerError,
+        self.assertRaises(exceptions.HTTPServerError,
                           self.httpclient._check_status_code, resp)
 
     def test_raises_http_client_error_for_400_response(self):
         resp = mock.MagicMock()
         resp.status_code = 400
-        self.assertRaises(client.HTTPClientError,
+        self.assertRaises(exceptions.HTTPClientError,
                           self.httpclient._check_status_code, resp)
 
 

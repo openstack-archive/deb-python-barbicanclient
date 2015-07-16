@@ -16,10 +16,12 @@ import json
 import logging
 import os
 
+from keystoneclient import adapter
 from keystoneclient.auth.base import BaseAuthPlugin
 from keystoneclient import session as ks_session
 
 from barbicanclient import containers
+from barbicanclient import exceptions
 from barbicanclient._i18n import _
 from barbicanclient import orders
 from barbicanclient import secrets
@@ -31,39 +33,23 @@ _DEFAULT_SERVICE_INTERFACE = 'public'
 _DEFAULT_API_VERSION = 'v1'
 
 
-class HTTPError(Exception):
+class _HTTPClient(adapter.Adapter):
 
-    """Base exception for HTTP errors."""
+    def __init__(self, session, project_id=None, **kwargs):
+        kwargs.setdefault('interface', _DEFAULT_SERVICE_INTERFACE)
+        kwargs.setdefault('service_type', _DEFAULT_SERVICE_TYPE)
+        kwargs.setdefault('version', _DEFAULT_API_VERSION)
+        endpoint = kwargs.pop('endpoint', None)
 
-    def __init__(self, message):
-        super(HTTPError, self).__init__(message)
+        super(_HTTPClient, self).__init__(session, **kwargs)
 
-
-class HTTPServerError(HTTPError):
-
-    """Raised for 5xx responses from the server."""
-    pass
-
-
-class HTTPClientError(HTTPError):
-
-    """Raised for 4xx responses from the server."""
-    pass
-
-
-class HTTPAuthError(HTTPError):
-
-    """Raised for 401 Unauthorized responses from the server."""
-    pass
-
-
-class _HTTPClient(object):
-
-    def __init__(self, session, endpoint=None, project_id=None,
-                 verify=True, service_type=_DEFAULT_SERVICE_TYPE,
-                 service_name=None, interface=_DEFAULT_SERVICE_INTERFACE,
-                 region_name=None):
-        self._session = session
+        if not endpoint:
+            endpoint = self.get_endpoint()
+        # NOTE(jaosorior): We are manually appending the given version. This
+        #                  could be filled automatically by keystoneclient; but
+        #                  we need the fix-version-api blueprint to land in the
+        #                  server first.
+        self.endpoint_override = '{0}/{1}'.format(endpoint, self.version)
 
         if project_id is None:
             self._default_headers = dict()
@@ -71,84 +57,56 @@ class _HTTPClient(object):
             # If provided we'll include the project ID in all requests.
             self._default_headers = {'X-Project-Id': project_id}
 
-        if not endpoint:
-            endpoint = session.get_endpoint(service_type=service_type,
-                                            service_name=service_name,
-                                            interface=interface,
-                                            region_name=region_name)
-
-        if endpoint.endswith('/'):
-            endpoint = endpoint[:-1]
-
-        self._barbican_endpoint = endpoint
-        self._base_url = '{0}/{1}'.format(endpoint, _DEFAULT_API_VERSION)
-
-    def _get(self, href, params=None):
-        headers = {'Accept': 'application/json'}
+    def request(self, *args, **kwargs):
+        headers = kwargs.setdefault('headers', {})
         headers.update(self._default_headers)
-        resp = self._session.get(href, params=params, headers=headers)
+
+        # Set raise_exc=False by default so that we handle request exceptions
+        kwargs.setdefault('raise_exc', False)
+
+        resp = super(_HTTPClient, self).request(*args, **kwargs)
         self._check_status_code(resp)
-        return resp.json()
+        return resp
 
-    def _get_raw(self, href, headers):
-        headers.update(self._default_headers)
-        resp = self._session.get(href, headers=headers)
-        self._check_status_code(resp)
-        return resp.content
+    def get(self, *args, **kwargs):
+        headers = kwargs.setdefault('headers', {})
+        headers.setdefault('Accept', 'application/json')
 
-    def _delete(self, href, json=None):
-        headers = dict()
-        headers.update(self._default_headers)
-        resp = self._session.delete(href, headers=headers, json=json)
-        self._check_status_code(resp)
+        return super(_HTTPClient, self).get(*args, **kwargs).json()
 
-    def _deserialization_helper(self, obj):
-        """
-        Help deserialization of objects which may require special processing
-        (for example datetime objects).  If your object gives you
-        json.dumps errors when you attempt to deserialize then this
-        function is the place where you will handle that special case.
+    def post(self, path, *args, **kwargs):
+        if not path[-1] == '/':
+            path += '/'
 
-        :param obj: an object that may or may not require special processing
-        :return: the stringified object (if it required special processing) or
-        the object itself.
-        """
-        # by default, return the object itself
-        return_str = obj
+        return super(_HTTPClient, self).post(path, *args, **kwargs).json()
 
-        # special case for objects that contain isoformat method (ie datetime)
-        if hasattr(obj, 'isoformat'):
-            return_str = obj.isoformat()
-
-        return return_str
-
-    def _post(self, path, data):
-        url = '{0}/{1}/'.format(self._base_url, path)
-        headers = {'Content-Type': 'application/json'}
-        headers.update(self._default_headers)
-        resp = self._session.post(
-            url,
-            data=json.dumps(data, default=self._deserialization_helper),
-            headers=headers)
-        self._check_status_code(resp)
-        return resp.json()
+    def _get_raw(self, path, *args, **kwargs):
+        return self.request(path, 'GET', *args, **kwargs).content
 
     def _check_status_code(self, resp):
         status = resp.status_code
         LOG.debug('Response status {0}'.format(status))
         if status == 401:
             LOG.error('Auth error: {0}'.format(self._get_error_message(resp)))
-            raise HTTPAuthError('{0}'.format(self._get_error_message(resp)))
+            raise exceptions.HTTPAuthError(
+                '{0}'.format(self._get_error_message(resp))
+            )
         if not status or status >= 500:
             LOG.error('5xx Server error: {0}'.format(
                 self._get_error_message(resp)
             ))
-            raise HTTPServerError('{0}'.format(self._get_error_message(resp)))
+            raise exceptions.HTTPServerError(
+                '{0}'.format(self._get_error_message(resp)),
+                status
+            )
         if status >= 400:
             LOG.error('4xx Client error: {0}'.format(
                 self._get_error_message(resp)
             ))
-            raise HTTPClientError('{0}'.format(self._get_error_message(resp)))
+            raise exceptions.HTTPClientError(
+                '{0}'.format(self._get_error_message(resp)),
+                status
+            )
 
     def _get_error_message(self, resp):
         try:
@@ -171,7 +129,7 @@ class Client(object):
             parameters.  When no session is provided it will default to a
             non-authenticated Session.
         :param endpoint: Barbican endpoint url. Required when a session is not
-            given, or when using a non-authentciated session.
+            given, or when using a non-authenticated session.
             When using an authenticated session, the client will attempt
             to get an endpoint from the session.
         :param project_id: The project ID used for context in Barbican.
@@ -200,8 +158,8 @@ class Client(object):
         if not session:
             session = ks_session.Session(verify=kwargs.pop('verify', True))
 
-        if session.auth is None:
-            if kwargs.get('endpoint') is None:
+        if session.auth is None and kwargs.get('auth') is None:
+            if not kwargs.get('endpoint'):
                 raise ValueError('Barbican endpoint url must be provided when '
                                  'not using auth in the Keystone Session.')
 

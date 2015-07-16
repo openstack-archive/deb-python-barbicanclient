@@ -192,7 +192,7 @@ class Container(ContainerFormatter):
         LOG.debug("Request body: {0}".format(container_dict))
 
         # Save, store container_ref and return
-        response = self._api._post(self._entity, container_dict)
+        response = self._api.post(self._entity, json=container_dict)
         if response:
             self._container_ref = response['container_ref']
         return self.container_ref
@@ -200,7 +200,7 @@ class Container(ContainerFormatter):
     def delete(self):
         """Delete container from Barbican"""
         if self._container_ref:
-            self._api._delete(self._container_ref)
+            self._api.delete(self._container_ref)
             self._container_ref = None
             self._status = None
             self._created = None
@@ -225,7 +225,7 @@ class Container(ContainerFormatter):
                   .format(self._container_ref))
         base.validate_ref(self._container_ref, 'Container')
         try:
-            response = self._api._get(self._container_ref)
+            response = self._api.get(self._container_ref)
         except AttributeError:
             raise LookupError('Container {0} could not be found.'
                               .format(self._container_ref))
@@ -527,7 +527,7 @@ class ContainerManager(base.BaseEntityManager):
                   .format(container_ref))
         base.validate_ref(container_ref, 'Container')
         try:
-            response = self._api._get(container_ref)
+            response = self._api.get(container_ref)
         except AttributeError:
             raise LookupError('Container {0} could not be found.'
                               .format(container_ref))
@@ -613,6 +613,9 @@ class ContainerManager(base.BaseEntityManager):
         :param secrets: Secrets to populate when creating a Container
         :returns: Container
         :rtype: :class:`barbicanclient.containers.Container`
+        :raises barbicanclient.exceptions.HTTPAuthError: 401 Responses
+        :raises barbicanclient.exceptions.HTTPClientError: 4xx Responses
+        :raises barbicanclient.exceptions.HTTPServerError: 5xx Responses
         """
         return Container(
             api=self._api,
@@ -634,6 +637,9 @@ class ContainerManager(base.BaseEntityManager):
         :param private_key_passphrase: Secret object containing a passphrase
         :returns: RSAContainer
         :rtype: :class:`barbicanclient.containers.RSAContainer`
+        :raises barbicanclient.exceptions.HTTPAuthError: 401 Responses
+        :raises barbicanclient.exceptions.HTTPClientError: 4xx Responses
+        :raises barbicanclient.exceptions.HTTPServerError: 5xx Responses
         """
         return RSAContainer(
             api=self._api,
@@ -659,6 +665,9 @@ class ContainerManager(base.BaseEntityManager):
         :param private_key_passphrase: Secret object containing a passphrase
         :returns: CertificateContainer
         :rtype: :class:`barbicanclient.containers.CertificateContainer`
+        :raises barbicanclient.exceptions.HTTPAuthError: 401 Responses
+        :raises barbicanclient.exceptions.HTTPClientError: 4xx Responses
+        :raises barbicanclient.exceptions.HTTPServerError: 5xx Responses
         """
         return CertificateContainer(
             api=self._api,
@@ -674,10 +683,13 @@ class ContainerManager(base.BaseEntityManager):
         Delete a Container from Barbican
 
         :param container_ref: Full HATEOAS reference to a Container
+        :raises barbicanclient.exceptions.HTTPAuthError: 401 Responses
+        :raises barbicanclient.exceptions.HTTPClientError: 4xx Responses
+        :raises barbicanclient.exceptions.HTTPServerError: 5xx Responses
         """
         if not container_ref:
             raise ValueError('container_ref is required.')
-        self._api._delete(container_ref)
+        self._api.delete(container_ref)
 
     def list(self, limit=10, offset=0, name=None, type=None):
         """
@@ -689,17 +701,19 @@ class ContainerManager(base.BaseEntityManager):
         :param name: Name filter for the list
         :param type: Type filter for the list
         :returns: list of Container metadata objects
+        :raises barbicanclient.exceptions.HTTPAuthError: 401 Responses
+        :raises barbicanclient.exceptions.HTTPClientError: 4xx Responses
+        :raises barbicanclient.exceptions.HTTPServerError: 5xx Responses
         """
         LOG.debug('Listing containers - offset {0} limit {1} name {2} type {3}'
                   .format(offset, limit, name, type))
-        href = '{0}/{1}'.format(self._api._base_url, self._entity)
         params = {'limit': limit, 'offset': offset}
         if name:
             params['name'] = name
         if type:
             params['type'] = type
 
-        response = self._api._get(href, params)
+        response = self._api.get(self._entity, params=params)
 
         return [self._generate_typed_container(container)
                 for container in response.get('containers', [])]
@@ -712,6 +726,9 @@ class ContainerManager(base.BaseEntityManager):
         :param name: Name of the consuming service
         :param url: URL of the consuming resource
         :returns: A container object per the get() method
+        :raises barbicanclient.exceptions.HTTPAuthError: 401 Responses
+        :raises barbicanclient.exceptions.HTTPClientError: 4xx Responses
+        :raises barbicanclient.exceptions.HTTPServerError: 5xx Responses
         """
         LOG.debug('Creating consumer registration for container '
                   '{0} as {1}: {2}'.format(container_ref, name, url))
@@ -721,7 +738,7 @@ class ContainerManager(base.BaseEntityManager):
         consumer_dict['name'] = name
         consumer_dict['URL'] = url
 
-        response = self._api._post(href, consumer_dict)
+        response = self._api.post(href, json=consumer_dict)
         return self._generate_typed_container(response)
 
     def remove_consumer(self, container_ref, name, url):
@@ -731,15 +748,17 @@ class ContainerManager(base.BaseEntityManager):
         :param container_ref: Full HATEOAS reference to a Container
         :param name: Name of the previously consuming service
         :param url: URL of the previously consuming resource
+        :raises barbicanclient.exceptions.HTTPAuthError: 401 Responses
+        :raises barbicanclient.exceptions.HTTPClientError: 4xx Responses
+        :raises barbicanclient.exceptions.HTTPServerError: 5xx Responses
         """
         LOG.debug('Deleting consumer registration for container '
                   '{0} as {1}: {2}'.format(container_ref, name, url))
-        href = '{0}/{1}/{2}/consumers'.format(self._api._base_url,
-                                              self._entity,
-                                              container_ref.split('/')[-1])
+        href = '{0}/{1}/consumers'.format(self._entity,
+                                          container_ref.split('/')[-1])
         consumer_dict = {
             'name': name,
             'URL': url
         }
 
-        self._api._delete(href, json=consumer_dict)
+        self._api.delete(href, json=consumer_dict)

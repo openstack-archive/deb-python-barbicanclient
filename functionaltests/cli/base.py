@@ -14,7 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from functionaltests.common import config
+from functionaltests.base import BaseTestCase
 
+class CmdLineTestCase(BaseTestCase):
 
-CONF = config.get_config()
+    def setUp(self):
+        self.LOG.info('Starting: %s', self._testMethodName)
+        super(CmdLineTestCase, self).setUp()

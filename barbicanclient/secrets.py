@@ -82,7 +82,8 @@ class Secret(SecretFormatter):
                  bit_length=None, mode=None, payload=None,
                  payload_content_type=None, payload_content_encoding=None,
                  secret_ref=None, created=None, updated=None,
-                 content_types=None, status=None, secret_type=None):
+                 content_types=None, status=None, secret_type=None,
+                 creator_id=None):
         """
         Secret objects should not be instantiated directly.  You should use
         the `create` or `get` methods of the
@@ -102,7 +103,8 @@ class Secret(SecretFormatter):
             created=created,
             updated=updated,
             content_types=content_types,
-            status=status
+            status=status,
+            creator_id=creator_id
         )
 
     @property
@@ -241,7 +243,7 @@ class Secret(SecretFormatter):
             payload_url = self._secret_ref + '/payload'
         else:
             payload_url = self._secret_ref + 'payload'
-        payload = self._api._get_raw(payload_url, headers)
+        payload = self._api._get_raw(payload_url, headers=headers)
         if self.payload_content_type == u'text/plain':
             self._payload = payload.decode('UTF-8')
         else:
@@ -301,7 +303,7 @@ class Secret(SecretFormatter):
         LOG.debug("Request body: {0}".format(secret_dict))
 
         # Save, store secret_ref and return
-        response = self._api._post(self._entity, secret_dict)
+        response = self._api.post(self._entity, json=secret_dict)
         if response:
             self._secret_ref = response.get('secret_ref')
         return self.secret_ref
@@ -311,7 +313,7 @@ class Secret(SecretFormatter):
         Deletes the Secret from Barbican
         """
         if self._secret_ref:
-            self._api._delete(self._secret_ref)
+            self._api.delete(self._secret_ref)
             self._secret_ref = None
         else:
             raise LookupError("Secret is not yet stored.")
@@ -320,7 +322,8 @@ class Secret(SecretFormatter):
                         bit_length=None, mode=None, payload=None,
                         payload_content_type=None,
                         payload_content_encoding=None, created=None,
-                        updated=None, content_types=None, status=None):
+                        updated=None, content_types=None, status=None,
+                        creator_id=None):
         self._name = name
         self._algorithm = algorithm
         self._bit_length = bit_length
@@ -328,6 +331,7 @@ class Secret(SecretFormatter):
         self._payload = payload
         self._payload_content_encoding = payload_content_encoding
         self._expiration = expiration
+        self._creator_id = creator_id
         if self._expiration:
             self._expiration = parse_isotime(self._expiration)
         if self._secret_ref:
@@ -353,7 +357,7 @@ class Secret(SecretFormatter):
 
     def _fill_lazy_properties(self):
         if self._secret_ref and not self._name:
-            result = self._api._get(self._secret_ref)
+            result = self._api.get(self._secret_ref)
             self._fill_from_data(
                 name=result.get('name'),
                 expiration=result.get('expiration'),
@@ -392,6 +396,9 @@ class SecretManager(base.BaseEntityManager):
             See Launchpad Bug #1419166.
         :returns: Secret object retrieved from Barbican
         :rtype: :class:`barbicanclient.secrets.Secret`
+        :raises barbicanclient.exceptions.HTTPAuthError: 401 Responses
+        :raises barbicanclient.exceptions.HTTPClientError: 4xx Responses
+        :raises barbicanclient.exceptions.HTTPServerError: 5xx Responses
         """
         LOG.debug("Getting secret - Secret href: {0}".format(secret_ref))
         base.validate_ref(secret_ref, 'Secret')
@@ -424,6 +431,9 @@ class SecretManager(base.BaseEntityManager):
         :param expiration: The expiration time of the secret in ISO 8601 format
         :returns: A new Secret object
         :rtype: :class:`barbicanclient.secrets.Secret`
+        :raises barbicanclient.exceptions.HTTPAuthError: 401 Responses
+        :raises barbicanclient.exceptions.HTTPClientError: 4xx Responses
+        :raises barbicanclient.exceptions.HTTPServerError: 5xx Responses
         """
         return Secret(api=self._api, name=name, payload=payload,
                       payload_content_type=payload_content_type,
@@ -436,11 +446,14 @@ class SecretManager(base.BaseEntityManager):
         Delete a Secret from Barbican
 
         :param secret_ref: The href for the secret to be deleted
+        :raises barbicanclient.exceptions.HTTPAuthError: 401 Responses
+        :raises barbicanclient.exceptions.HTTPClientError: 4xx Responses
+        :raises barbicanclient.exceptions.HTTPServerError: 5xx Responses
         """
         base.validate_ref(secret_ref, 'Secret')
         if not secret_ref:
             raise ValueError('secret_ref is required.')
-        self._api._delete(secret_ref)
+        self._api.delete(secret_ref)
 
     def list(self, limit=10, offset=0, name=None, algorithm=None,
              mode=None, bits=0):
@@ -459,10 +472,12 @@ class SecretManager(base.BaseEntityManager):
         :returns: list of Secret objects that satisfy the provided filter
             criteria.
         :rtype: list
+        :raises barbicanclient.exceptions.HTTPAuthError: 401 Responses
+        :raises barbicanclient.exceptions.HTTPClientError: 4xx Responses
+        :raises barbicanclient.exceptions.HTTPServerError: 5xx Responses
         """
         LOG.debug('Listing secrets - offset {0} limit {1}'.format(offset,
                                                                   limit))
-        href = '{0}/{1}'.format(self._api._base_url, self._entity)
         params = {'limit': limit, 'offset': offset}
         if name:
             params['name'] = name
@@ -473,7 +488,7 @@ class SecretManager(base.BaseEntityManager):
         if bits > 0:
             params['bits'] = bits
 
-        response = self._api._get(href, params)
+        response = self._api.get(self._entity, params=params)
 
         return [
             Secret(api=self._api, **s)

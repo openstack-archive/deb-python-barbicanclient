@@ -1,6 +1,7 @@
 python-barbicanclient (3.2.0-1) experimental; urgency=medium
 
   * New upstream release.
+  * Blacklist all TestBarbicanWithKeystone* because of an issue in the fixture.
 
  -- Thomas Goirand <zigo@debian.org>  Thu, 16 Jul 2015 20:37:25 +0000
 

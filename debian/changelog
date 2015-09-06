@@ -1,3 +1,9 @@
+python-barbicanclient (3.3.0-1) experimental; urgency=medium
+
+  * New upstream release.
+
+ -- Thomas Goirand <zigo@debian.org>  Sun, 06 Sep 2015 23:43:31 +0200
+
 python-barbicanclient (3.2.0-1) experimental; urgency=medium
 
   * New upstream release.

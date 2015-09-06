@@ -20,6 +20,7 @@ from keystoneclient import adapter
 from keystoneclient.auth.base import BaseAuthPlugin
 from keystoneclient import session as ks_session
 
+from barbicanclient import cas
 from barbicanclient import containers
 from barbicanclient import exceptions
 from barbicanclient._i18n import _
@@ -43,13 +44,8 @@ class _HTTPClient(adapter.Adapter):
 
         super(_HTTPClient, self).__init__(session, **kwargs)
 
-        if not endpoint:
-            endpoint = self.get_endpoint()
-        # NOTE(jaosorior): We are manually appending the given version. This
-        #                  could be filled automatically by keystoneclient; but
-        #                  we need the fix-version-api blueprint to land in the
-        #                  server first.
-        self.endpoint_override = '{0}/{1}'.format(endpoint, self.version)
+        if endpoint:
+            self.endpoint_override = '{0}/{1}'.format(endpoint, self.version)
 
         if project_id is None:
             self._default_headers = dict()
@@ -172,6 +168,7 @@ class Client(object):
         self.secrets = secrets.SecretManager(httpclient)
         self.orders = orders.OrderManager(httpclient)
         self.containers = containers.ContainerManager(httpclient)
+        self.cas = cas.CAManager(httpclient)
 
 
 def env(*vars, **kwargs):

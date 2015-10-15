@@ -1,6 +1,7 @@
 python-barbicanclient (3.3.0-3) unstable; urgency=medium
 
   * Uploading to unstable.
+  * Do not test with Python 3.5: there's issues with it.
 
  -- Thomas Goirand <zigo@debian.org>  Thu, 15 Oct 2015 21:27:22 +0000
 

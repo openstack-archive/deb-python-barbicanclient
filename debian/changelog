@@ -2,6 +2,8 @@ python-barbicanclient (4.0.0-1) experimental; urgency=medium
 
   * New upstream release.
   * Fixed (build-)depends for this release.
+  * Standards-Version: 3.9.7 (no change).
+  * HTTPS VCS URLs.
 
  -- Thomas Goirand <zigo@debian.org>  Mon, 21 Mar 2016 11:20:00 +0100
 

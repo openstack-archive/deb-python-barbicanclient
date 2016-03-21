@@ -1,6 +1,14 @@
 python-barbicanclient
 =====================
 
+.. image:: https://img.shields.io/pypi/v/python-barbicanclient.svg
+    :target: https://pypi.python.org/pypi/python-barbicanclient/
+    :alt: Latest Version
+
+.. image:: https://img.shields.io/pypi/dm/python-barbicanclient.svg
+    :target: https://pypi.python.org/pypi/python-barbicanclient/
+    :alt: Downloads
+
 This is a client for the `Barbican <https://github.com/openstack/barbican>`__
 Key Management API.  There is a Python library for accessing the API
 (`barbicanclient` module), and a command-line script (`barbican`).
@@ -8,7 +16,9 @@ Key Management API.  There is a Python library for accessing the API
 Installation
 ------------
 
-The client is `pip installable <https://pypi.python.org/pypi/python-barbicanclient>`__ as follows:
+The client is
+`pip installable <https://pypi.python.org/pypi/python-barbicanclient>`__ as
+follows:
 
 .. code:: console
 
@@ -18,13 +28,14 @@ The client is `pip installable <https://pypi.python.org/pypi/python-barbicanclie
 barbicanclient - Python Library
 -------------------------------
 
-The full api is `documented in the official OpenStack documentation site <http://docs.openstack.org/developer/python-barbicanclient>`__.
+The full api is
+`documented in the official OpenStack documentation site <http://docs.openstack.org/developer/python-barbicanclient>`__.
 
 
 Here's an example of storing a secret in barbican using the python library
 with keystone authentication:
 
-.. code:: pycon
+.. code:: python
 
     >>> from keystoneclient.auth import identity
     >>> from keystoneclient import session
@@ -66,11 +77,18 @@ with keystone authentication:
     >>> print(retrieved_secret.payload)
     the magic words are squeamish ossifrage
 
+.. note::
+
+    In order for the example above to work Barbican must be running and
+    configured to use the Keystone Middleware. For more information on
+    setting this up please visit:
+    http://docs.openstack.org/developer/barbican/setup/keystone.html [1]_
 
 barbican - Command Line Client
 ------------------------------
 
-The command line client is self-documenting. Use the --help flag to access the usage options
+The command line client is self-documenting. Use the --help flag to access the
+usage options
 
 .. code:: console
 
@@ -103,7 +121,7 @@ The command line client is self-documenting. Use the --help flag to access the u
       --no-auth, -N         Do not use authentication.
       --os-identity-api-version <identity-api-version>
                             Specify Identity API version to use. Defaults to
-                            env[OS_IDENTITY_API_VERSION] or 3.0.
+                            env[OS_IDENTITY_API_VERSION] or 3.
 
       --os-auth-url <auth-url>, -A <auth-url>
                             Defaults to env[OS_AUTH_URL].
@@ -149,23 +167,50 @@ The command line client is self-documenting. Use the --help flag to access the u
       --os-key <key>        Defaults to env[OS_KEY].
       --timeout <seconds>   Set request timeout (in seconds).
 
+    See "barbican help COMMAND" for help on a specific command.
+
     Commands:
-      complete       print bash completion command
-      container create  Store a container in Barbican.
-      container delete  Delete a container by providing its href.
-      container get  Retrieve a container by providing its URI.
-      container list  List containers.
-      help           print detailed help for another command
-      order create   Create a new order.
-      order delete   Delete an order by providing its href.
-      order get      Retrieve an order by providing its URI.
-      order list     List orders.
-      secret delete  Delete an secret by providing its href.
-      secret get     Retrieve a secret by providing its URI.
-      secret list    List secrets.
-      secret store   Store a secret in Barbican.
+      acl get                  Retrieve ACLs for a secret or container by providing its href.
+      acl delete               Delete ACLs for a secret or container as identified by its href.
+      acl submit               Submit ACL on a secret or container as identified by its href.
+      acl user add             Add ACL users to a secret or container as identified by its href.
+      acl user remove          Remove ACL users from a secret or container as identified by its href.
+      ca get                   Retrieve a CA by providing its URI.
+      ca list                  List cas.
+      complete                 print bash completion command
+      secret container create  Store a container in Barbican.
+      secret container delete  Delete a container by providing its href.
+      secret container get     Retrieve a container by providing its URI.
+      secret container list    List containers.
+      help                     print detailed help for another command
+      secret order create      Create a new order.
+      secret order delete      Delete an order by providing its href.
+      secret order get         Retrieve an order by providing its URI.
+      secret order list        List orders.
+      secret delete            Delete an secret by providing its href.
+      secret get               Retrieve a secret by providing its URI.
+      secret list              List secrets.
+      secret store             Store a secret in Barbican
+      secret update            Update a secret with no payload in Barbican.
 
 * License: Apache License, Version 2.0
-* Documentation: http://docs.openstack.org/developer/python-barbicanclient
-* Source: http://git.openstack.org/cgit/openstack/python-barbicanclient
-* Bugs: http://bugs.launchpad.net/python-barbicanclient
+* `PyPi`_ - package installation
+* `Online Documentation`_
+* `Launchpad project`_ - release management
+* `Blueprints`_ - feature specifications
+* `Bugs`_ - issue tracking
+* `Source`_
+* `Specs`_
+* `Getting involved`_
+
+.. _PyPi: https://pypi.python.org/pypi/python-barbicanclient/
+.. _Online Documentation: http://docs.openstack.org/developer/python-barbicanclient/
+.. _Launchpad project: https://launchpad.net/python-barbicanclient/
+.. _Blueprints: https://blueprints.launchpad.net/python-barbicanclient/
+.. _Bugs: https://bugs.launchpad.net/python-barbicanclient/
+.. _Source: https://git.openstack.org/cgit/openstack/python-barbicanclient/
+.. _Getting involved: http://docs.openstack.org/developer/barbican/contribute/getting_involved.html
+.. _Specs: http://specs.openstack.org/openstack/barbican-specs/
+
+
+.. [1] Documentation in this link is currently incomplete. Please use the `devstack setup <http://docs.openstack.org/developer/barbican/setup/devstack.html>`__.

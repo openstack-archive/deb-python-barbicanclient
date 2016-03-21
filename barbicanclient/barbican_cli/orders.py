@@ -25,10 +25,9 @@ class CreateOrder(show.ShowOne):
 
     def get_parser(self, prog_name):
         parser = super(CreateOrder, self).get_parser(prog_name)
+        parser.add_argument('type', help='the type of the order to create.')
         parser.add_argument('--name', '-n',
                             help='a human-friendly name.')
-        parser.add_argument('--type', '-p',
-                            help='the type of the order to create.')
         parser.add_argument('--algorithm', '-a', default='aes',
                             help='the algorithm to be used with the '
                                  'requested key (default: '
@@ -73,14 +72,14 @@ class CreateOrder(show.ShowOne):
                     raise ValueError(
                         'Couldn\'t read request file %s.' % args.request_file)
 
-            entity = self.app.client.orders.create(
+            entity = self.app.client_manager.key_manager.orders.create(
                 name=args.name, type=args.type, subject_dn=args.subject_dn,
                 request_type=args.request_type,
                 source_container_ref=args.source_container_ref,
                 ca_id=args.ca_id, profile=args.profile,
                 request_data=request_data)
         else:
-            entity = self.app.client.orders.create(
+            entity = self.app.client_manager.key_manager.orders.create(
                 name=args.name, type=args.type,
                 payload_content_type=args.payload_content_type,
                 algorithm=args.algorithm, bit_length=args.bit_length,
@@ -98,7 +97,7 @@ class DeleteOrder(command.Command):
         return parser
 
     def take_action(self, args):
-        self.app.client.orders.delete(args.URI)
+        self.app.client_manager.key_manager.orders.delete(args.URI)
 
 
 class GetOrder(show.ShowOne):
@@ -110,7 +109,8 @@ class GetOrder(show.ShowOne):
         return parser
 
     def take_action(self, args):
-        entity = self.app.client.orders.get(order_ref=args.URI)
+        entity = self.app.client_manager.key_manager.orders.get(
+            order_ref=args.URI)
         return entity._get_formatted_entity()
 
 
@@ -131,7 +131,8 @@ class ListOrder(lister.Lister):
         return parser
 
     def take_action(self, args):
-        obj_list = self.app.client.orders.list(args.limit, args.offset)
+        obj_list = self.app.client_manager.key_manager.orders.list(
+            args.limit, args.offset)
         if not obj_list:
             return [], []
         columns = obj_list[0]._get_generic_columns()

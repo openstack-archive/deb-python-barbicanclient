@@ -29,7 +29,7 @@ class DeleteSecret(command.Command):
         return parser
 
     def take_action(self, args):
-        self.app.client.secrets.delete(args.URI)
+        self.app.client_manager.key_manager.secrets.delete(args.URI)
 
 
 class GetSecret(show.ShowOne):
@@ -62,13 +62,29 @@ class GetSecret(show.ShowOne):
 
     def take_action(self, args):
         if args.decrypt or args.payload:
-            entity = self.app.client.secrets.get(args.URI,
-                                                 args.payload_content_type)
+            entity = self.app.client_manager.key_manager.secrets.get(
+                args.URI, args.payload_content_type)
             return (('Payload',),
                     (entity.payload,))
         else:
-            entity = self.app.client.secrets.get(secret_ref=args.URI)
+            entity = self.app.client_manager.key_manager.secrets.get(
+                secret_ref=args.URI)
             return entity._get_formatted_entity()
+
+
+class UpdateSecret(command.Command):
+    """Update a secret with no payload in Barbican."""
+
+    def get_parser(self, prog_name):
+        parser = super(UpdateSecret, self).get_parser(prog_name)
+        parser.add_argument('URI', help='The URI reference for the secret.')
+        parser.add_argument('payload', help='the unencrypted secret')
+
+        return parser
+
+    def take_action(self, args):
+        self.app.client_manager.key_manager.secrets.update(args.URI,
+                                                           args.payload)
 
 
 class ListSecret(lister.Lister):
@@ -101,10 +117,9 @@ class ListSecret(lister.Lister):
         return parser
 
     def take_action(self, args):
-        obj_list = self.app.client.secrets.list(args.limit, args.offset,
-                                                args.name, args.mode,
-                                                args.algorithm,
-                                                args.bit_length)
+        obj_list = self.app.client_manager.key_manager.secrets.list(
+            limit=args.limit, offset=args.offset, name=args.name,
+            algorithm=args.algorithm, mode=args.mode, bits=args.bit_length)
         return secrets.Secret._list_objects(obj_list)
 
 
@@ -147,7 +162,7 @@ class StoreSecret(show.ShowOne):
         return parser
 
     def take_action(self, args):
-        entity = self.app.client.secrets.create(
+        entity = self.app.client_manager.key_manager.secrets.create(
             name=args.name, payload=args.payload,
             payload_content_type=args.payload_content_type,
             payload_content_encoding=args.payload_content_encoding,

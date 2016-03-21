@@ -20,6 +20,7 @@ from keystoneclient import adapter
 from keystoneclient.auth.base import BaseAuthPlugin
 from keystoneclient import session as ks_session
 
+from barbicanclient import acls
 from barbicanclient import cas
 from barbicanclient import containers
 from barbicanclient import exceptions
@@ -71,10 +72,14 @@ class _HTTPClient(adapter.Adapter):
         return super(_HTTPClient, self).get(*args, **kwargs).json()
 
     def post(self, path, *args, **kwargs):
-        if not path[-1] == '/':
-            path += '/'
+        path = self._fix_path(path)
 
         return super(_HTTPClient, self).post(path, *args, **kwargs).json()
+
+    def _fix_path(self, path):
+        if not path[-1] == '/':
+            path += '/'
+        return path
 
     def _get_raw(self, path, *args, **kwargs):
         return self.request(path, 'GET', *args, **kwargs).content
@@ -169,6 +174,7 @@ class Client(object):
         self.orders = orders.OrderManager(httpclient)
         self.containers = containers.ContainerManager(httpclient)
         self.cas = cas.CAManager(httpclient)
+        self.acls = acls.ACLManager(httpclient)
 
 
 def env(*vars, **kwargs):

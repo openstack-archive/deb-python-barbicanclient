@@ -1,6 +1,7 @@
 python-barbicanclient (3.3.0-4) UNRELEASED; urgency=medium
 
   * Fixed VCS URLs (https).
+  * d/rules: Removed UPSTREAM_GIT with default value
 
  -- Ondřej Nový <novy@ondrej.org>  Sun, 28 Feb 2016 15:33:25 +0100
 

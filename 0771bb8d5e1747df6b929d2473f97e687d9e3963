@@ -1,0 +1,10 @@
+Code-Review+2: Douglas Mendizábal <douglas.mendizabal@rackspace.com>
+Code-Review+2: Chad Lung <chad.lung@gmail.com>
+Code-Review+2: Nathan Reller <nathan.s.reller@gmail.com>
+Workflow+1: Douglas Mendizábal <douglas.mendizabal@rackspace.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Tue, 22 Sep 2015 17:34:07 +0000
+Reviewed-on: https://review.openstack.org/218396
+Project: openstack/deb-python-barbicanclient
+Branch: refs/heads/master

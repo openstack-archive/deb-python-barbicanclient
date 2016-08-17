@@ -1,0 +1,11 @@
+Code-Review+2: Nathan Reller <nathan.s.reller@gmail.com>
+Code-Review+2: Chad Lung <chad.lung@gmail.com>
+Code-Review+2: Juan Antonio Osorio Robles <jaosorior@redhat.com>
+Code-Review+2: Kaitlin Farr <kaitlin.farr@jhuapl.edu>
+Workflow+1: Kaitlin Farr <kaitlin.farr@jhuapl.edu>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Tue, 01 Sep 2015 20:05:55 +0000
+Reviewed-on: https://review.openstack.org/212130
+Project: openstack/deb-python-barbicanclient
+Branch: refs/heads/master

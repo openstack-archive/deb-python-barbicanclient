@@ -1,0 +1,8 @@
+Code-Review+2: John Wood <john.wood@rackspace.com>
+Workflow+1: Juan Antonio Osorio Robles <jaosorior@redhat.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Thu, 19 May 2016 05:38:30 +0000
+Reviewed-on: https://review.openstack.org/318346
+Project: openstack/deb-python-barbicanclient
+Branch: refs/heads/master

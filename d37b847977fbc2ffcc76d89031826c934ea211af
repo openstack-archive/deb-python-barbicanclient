@@ -1,0 +1,9 @@
+Code-Review+2: Douglas Mendizábal <douglas.mendizabal@rackspace.com>
+Code-Review+2: Fernando Diaz <diazjf@us.ibm.com>
+Workflow+1: Juan Antonio Osorio Robles <jaosorior@redhat.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Sat, 30 Apr 2016 19:43:20 +0000
+Reviewed-on: https://review.openstack.org/311138
+Project: openstack/deb-python-barbicanclient
+Branch: refs/heads/master

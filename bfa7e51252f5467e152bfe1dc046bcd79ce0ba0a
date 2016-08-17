@@ -1,0 +1,10 @@
+Code-Review+2: Dave McCowan <dmccowan@cisco.com>
+Code-Review+2: Chad Lung <chad.lung@gmail.com>
+Code-Review+1: Clint Adams <clint@gcfm.net>
+Workflow+1: John Wood <john.wood@rackspace.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Thu, 14 Jan 2016 22:55:35 +0000
+Reviewed-on: https://review.openstack.org/256514
+Project: openstack/deb-python-barbicanclient
+Branch: refs/heads/master

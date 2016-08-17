@@ -1,0 +1,11 @@
+Code-Review+2: Steve Heyman <steve.heyman@rackspace.com>
+Code-Review+2: Chad Lung <chad.lung@gmail.com>
+Code-Review+1: venkatamahesh <Venkata.Kotha@infinite.com>
+Code-Review+2: Nathan Reller <nathan.s.reller@gmail.com>
+Workflow+1: Nathan Reller <nathan.s.reller@gmail.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Wed, 23 Sep 2015 19:20:16 +0000
+Reviewed-on: https://review.openstack.org/220848
+Project: openstack/deb-python-barbicanclient
+Branch: refs/heads/master

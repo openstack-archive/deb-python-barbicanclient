@@ -1,0 +1,10 @@
+Code-Review+2: Ade Lee <alee@redhat.com>
+Code-Review+1: Christopher Solis <cnsolis@us.ibm.com>
+Code-Review+2: Juan Antonio Osorio Robles <jaosorior@redhat.com>
+Workflow+1: Juan Antonio Osorio Robles <jaosorior@redhat.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Mon, 05 Oct 2015 17:53:10 +0000
+Reviewed-on: https://review.openstack.org/231027
+Project: openstack/deb-python-barbicanclient
+Branch: refs/heads/master

@@ -1,0 +1,12 @@
+Code-Review+2: Nathan Reller <nathan.s.reller@gmail.com>
+Code-Review+1: Arun Kant <arun.kant@hpe.com>
+Code-Review+1: Elvin Tubillara <edtubill@us.ibm.com>
+Code-Review+2: Kaitlin Farr <kaitlin.farr@jhuapl.edu>
+Code-Review+1: Dave McCowan <dmccowan@cisco.com>
+Workflow+1: Nathan Reller <nathan.s.reller@gmail.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Tue, 01 Sep 2015 20:05:36 +0000
+Reviewed-on: https://review.openstack.org/196876
+Project: openstack/deb-python-barbicanclient
+Branch: refs/heads/master

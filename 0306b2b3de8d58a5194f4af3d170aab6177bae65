@@ -1,0 +1,10 @@
+Code-Review+2: Juan Antonio Osorio Robles <jaosorior@redhat.com>
+Code-Review+1: Christopher Solis <cnsolis@us.ibm.com>
+Code-Review+2: Chad Lung <chad.lung@gmail.com>
+Workflow+1: Chad Lung <chad.lung@gmail.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Fri, 25 Sep 2015 18:48:02 +0000
+Reviewed-on: https://review.openstack.org/227638
+Project: openstack/deb-python-barbicanclient
+Branch: refs/heads/master

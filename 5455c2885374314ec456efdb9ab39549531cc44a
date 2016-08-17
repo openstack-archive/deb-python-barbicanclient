@@ -1,0 +1,9 @@
+Code-Review+2: Juan Antonio Osorio Robles <jaosorior@redhat.com>
+Code-Review+2: Steve Heyman <steve.heyman@rackspace.com>
+Workflow+1: Steve Heyman <steve.heyman@rackspace.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Tue, 29 Sep 2015 17:44:39 +0000
+Reviewed-on: https://review.openstack.org/206699
+Project: openstack/deb-python-barbicanclient
+Branch: refs/heads/master

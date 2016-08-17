@@ -1,0 +1,11 @@
+Code-Review+1: Clint Adams <clint@gcfm.net>
+Code-Review+2: Dave McCowan <dmccowan@cisco.com>
+Code-Review+1: Ning Sun <ning.sun@intel.com>
+Code-Review+2: Chad Lung <chad.lung@gmail.com>
+Workflow+1: Chad Lung <chad.lung@gmail.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Fri, 05 Feb 2016 15:58:23 +0000
+Reviewed-on: https://review.openstack.org/271671
+Project: openstack/deb-python-barbicanclient
+Branch: refs/heads/master

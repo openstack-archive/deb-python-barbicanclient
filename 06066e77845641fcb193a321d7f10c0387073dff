@@ -1,0 +1,9 @@
+Code-Review+2: Kaitlin Farr <kaitlin.farr@jhuapl.edu>
+Code-Review+2: Fernando Diaz <diazjf@us.ibm.com>
+Workflow+1: Fernando Diaz <diazjf@us.ibm.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Tue, 16 Aug 2016 20:18:03 +0000
+Reviewed-on: https://review.openstack.org/332359
+Project: openstack/deb-python-barbicanclient
+Branch: refs/heads/master

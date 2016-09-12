@@ -18,7 +18,8 @@ import json
 from oslo_utils import timeutils
 
 from barbicanclient.tests import test_client
-from barbicanclient import secrets, base
+from barbicanclient import acls
+from barbicanclient import secrets, base, exceptions
 
 
 class SecretData(object):
@@ -195,9 +196,8 @@ class WhenTestingSecrets(test_client.BaseEntityResource):
 
         # Verify that attributes are immutable after store.
         attributes = [
-            "name", "expiration", "algorithm", "bit_length", "mode", "payload",
-            "payload_content_type", "payload_content_encoding", "secret_type"
-        ]
+            "name", "expiration", "algorithm", "bit_length", "mode",
+            "payload_content_type", "payload_content_encoding", "secret_type"]
         for attr in attributes:
             try:
                 setattr(secret, attr, "test")
@@ -235,6 +235,30 @@ class WhenTestingSecrets(test_client.BaseEntityResource):
 
         # Verify the correct URL was used to make the GET call
         self.assertEqual(self.entity_href, m.last_request.url)
+
+    def test_should_get_acls_lazy(self):
+        data = self.secret.get_dict(self.entity_href)
+        m = self.responses.get(self.entity_href, json=data)
+
+        acl_data = {'read': {'project-access': True, 'users': ['u1']}}
+        acl_ref = self.entity_href + '/acl'
+        n = self.responses.get(acl_ref, json=acl_data)
+
+        secret = self.manager.get(secret_ref=self.entity_href)
+        self.assertIsNotNone(secret)
+
+        self.assertEqual(self.secret.name, secret.name)
+        # Verify GET was called for secret but for acl it was not called
+        self.assertTrue(m.called)
+        self.assertFalse(n.called)
+
+        # Check an attribute to trigger lazy-load
+        self.assertEqual(['u1'], secret.acls.read.users)
+        self.assertTrue(secret.acls.read.project_access)
+        self.assertIsInstance(secret.acls, acls.SecretACL)
+
+        # Verify the correct URL was used to make the GET call
+        self.assertEqual(acl_ref, n.last_request.url)
 
     def test_should_get_payload_only_when_content_type_is_set(self):
         """
@@ -372,6 +396,29 @@ class WhenTestingSecrets(test_client.BaseEntityResource):
         # Verify the correct URL was used to make the call.
         self.assertEqual(self.entity_href, self.responses.last_request.url)
 
+    def test_should_update(self):
+        data = {'secret_ref': self.entity_href}
+        self.responses.post(self.entity_base + '/', json=data)
+
+        secret = self.manager.create()
+        secret.payload = None
+        secret.store()
+
+        # This literal will have type(unicode) in Python 2, but will have
+        # type(str) in Python 3.  It is six.text_type in both cases.
+        text_payload = u'time for an ice cold \U0001f37a'
+
+        self.responses.put(self.entity_href, status_code=204)
+
+        secret.payload = text_payload
+        secret.update()
+
+        # Verify the correct URL was used to make the call.
+        self.assertEqual(self.entity_href, self.responses.last_request.url)
+
+        # Verify that the data has been updated
+        self.assertEqual(text_payload, secret.payload)
+
     def test_should_get_list(self):
         secret_resp = self.secret.get_dict(self.entity_href)
 
@@ -395,16 +442,36 @@ class WhenTestingSecrets(test_client.BaseEntityResource):
         self.assertRaises(ValueError, self.manager.get,
                           **{'secret_ref': '12345'})
 
+    def test_should_fail_update_zero(self):
+        data = {'secret_ref': self.entity_href}
+        self.responses.post(self.entity_base + '/', json=data)
+
+        secret = self.manager.create()
+        secret.payload = None
+        secret.store()
+
+        self.responses.put(self.entity_href, status_code=204)
+        secret.payload = 0
+
+        # Verify that an error is thrown
+        self.assertRaises(exceptions.PayloadException, secret.update)
+
+    def test_should_fail_store_zero(self):
+        data = {'secret_ref': self.entity_href}
+        self.responses.post(self.entity_base + '/', json=data)
+
+        secret = self.manager.create()
+        secret.name = self.secret.name
+        secret.payload = 0
+
+        self.assertRaises(exceptions.PayloadException, secret.store)
+
     def test_should_fail_decrypt_no_content_types(self):
         data = self.secret.get_dict(self.entity_href)
         self.responses.get(self.entity_href, json=data)
         secret = self.manager.get(secret_ref=self.entity_href)
 
-        try:
-            secret.payload
-            self.fail("didn't raise a ValueError exception")
-        except ValueError:
-            pass
+        self.assertIsNone(secret.payload)
 
     def test_should_fail_decrypt_no_default_content_type(self):
         content_types_dict = {'no-default': 'application/octet-stream'}
@@ -412,11 +479,7 @@ class WhenTestingSecrets(test_client.BaseEntityResource):
         self.responses.get(self.entity_href, json=data)
 
         secret = self.manager.get(secret_ref=self.entity_href)
-        try:
-            secret.payload
-            self.fail("didn't raise a ValueError exception")
-        except ValueError:
-            pass
+        self.assertIsNone(secret.payload)
 
     def test_should_fail_delete_no_href(self):
         self.assertRaises(ValueError, self.manager.delete, None)

@@ -18,9 +18,13 @@ Command-line interface to the Barbican API.
 """
 
 import sys
+from collections import namedtuple
 
 from cliff import app
+from cliff import command
 from cliff import commandmanager
+from cliff import complete
+from cliff import help
 from keystoneclient.auth.identity import v3
 from keystoneclient.auth.identity import v2
 from keystoneclient import session
@@ -30,17 +34,30 @@ from barbicanclient import client
 from barbicanclient import version
 
 
-_DEFAULT_IDENTITY_API_VERSION = '3.0'
+_DEFAULT_IDENTITY_API_VERSION = '3'
+_IDENTITY_API_VERSION_2 = ['2', '2.0']
+_IDENTITY_API_VERSION_3 = ['3']
 
 
 class Barbican(app.App):
     """Barbican command line interface."""
 
     def __init__(self, **kwargs):
+        self.client = None
+
+        # Patch command.Command to add a default auth_required = True
+        command.Command.auth_required = True
+
+        # Some commands do not need authentication
+        help.HelpCommand.auth_required = False
+        complete.CompleteCommand.auth_required = False
+
         super(Barbican, self).__init__(
             description=__doc__.strip(),
             version=version.__version__,
-            command_manager=commandmanager.CommandManager('barbican.client'),
+            command_manager=commandmanager.CommandManager(
+                'openstack.key_manager.v1'),
+            deferred_help=True,
             **kwargs
         )
 
@@ -110,10 +127,19 @@ class Barbican(app.App):
         kwargs = self.build_kwargs_based_on_version(args, api_version)
         kwargs.update(kwargs_dict)
 
-        if not api_version or api_version == _DEFAULT_IDENTITY_API_VERSION:
-            method = v3.Token if auth_type == 'token' else v3.Password
-        else:
+        if api_version in _IDENTITY_API_VERSION_2:
             method = v2.Token if auth_type == 'token' else v2.Password
+        else:
+            if not api_version or api_version not in _IDENTITY_API_VERSION_3:
+                self.stderr.write(
+                    "WARNING: The identity version <{0}> is not in supported "
+                    "versions <{1}>, falling back to <{2}>.".format(
+                        api_version,
+                        _IDENTITY_API_VERSION_2 + _IDENTITY_API_VERSION_3,
+                        _DEFAULT_IDENTITY_API_VERSION
+                    )
+                )
+            method = v3.Token if auth_type == 'token' else v3.Password
 
         auth = method(**kwargs)
 
@@ -202,7 +228,7 @@ class Barbican(app.App):
                             default=client.env('OS_IDENTITY_API_VERSION'),
                             help='Specify Identity API version to use. '
                             'Defaults to env[OS_IDENTITY_API_VERSION]'
-                            ' or 3.0.')
+                            ' or 3.')
         parser.add_argument('--os-auth-url', '-A',
                             metavar='<auth-url>',
                             default=client.env('OS_AUTH_URL'),
@@ -237,7 +263,7 @@ class Barbican(app.App):
                             help='Defaults to env[OS_TENANT_ID].')
         parser.add_argument('--os-project-id',
                             metavar='<auth-project-id>',
-                            default=client.env('OS_PROJECT__ID'),
+                            default=client.env('OS_PROJECT_ID'),
                             help='Another way to specify tenant ID. '
                                  'This option is mutually exclusive with '
                                  ' --os-tenant-id. '
@@ -285,17 +311,20 @@ class Barbican(app.App):
                             metavar='<barbican-api-version>',
                             default=client.env('BARBICAN_API_VERSION'),
                             help='Defaults to env[BARBICAN_API_VERSION].')
+        parser.epilog = ('See "barbican help COMMAND" for help '
+                         'on a specific command.')
         session.Session.register_cli_options(parser)
         return parser
 
-    def initialize_app(self, argv):
-        """Initializes the application.
-        Checks if the minimal parameters are provided and creates the client
-        interface.
+    def prepare_to_run_command(self, cmd):
+        """Prepares to run the command
+        Checks if the minimal parameters are provided and creates the
+        client interface.
         This is inherited from the framework.
         """
-        args = self.options
-        self.client = self.create_client(args)
+        self.client_manager = namedtuple('ClientManager', 'key_manager')
+        if cmd.auth_required:
+            self.client_manager.key_manager = self.create_client(self.options)
 
     def run(self, argv):
         # If no arguments are provided, usage is displayed

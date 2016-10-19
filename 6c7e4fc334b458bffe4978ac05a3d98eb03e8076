@@ -1,0 +1,9 @@
+Code-Review+2: Dave McCowan <dmccowan@cisco.com>
+Code-Review+2: Fernando Diaz <diazjf@us.ibm.com>
+Workflow+1: Fernando Diaz <diazjf@us.ibm.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Wed, 19 Oct 2016 05:29:59 +0000
+Reviewed-on: https://review.openstack.org/375273
+Project: openstack/deb-python-barbicanclient
+Branch: refs/heads/master

@@ -1,0 +1,9 @@
+Code-Review+2: Ade Lee <alee@redhat.com>
+Code-Review+2: Dave McCowan <dmccowan@cisco.com>
+Workflow+1: Dave McCowan <dmccowan@cisco.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Wed, 14 Dec 2016 15:38:04 +0000
+Reviewed-on: https://review.openstack.org/409795
+Project: openstack/deb-python-barbicanclient
+Branch: refs/heads/master

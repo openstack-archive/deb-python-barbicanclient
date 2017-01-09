@@ -1,0 +1,9 @@
+Code-Review+2: Kaitlin Farr <kaitlin.farr@jhuapl.edu>
+Code-Review+2: Dave McCowan <dmccowan@cisco.com>
+Workflow+1: Dave McCowan <dmccowan@cisco.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Mon, 09 Jan 2017 01:56:52 +0000
+Reviewed-on: https://review.openstack.org/390602
+Project: openstack/deb-python-barbicanclient
+Branch: refs/heads/master

@@ -1,0 +1,13 @@
+Code-Review+1: Jeremy Liu <liujiong@gohighsec.com>
+Code-Review+1: Sharat Sharma <sharat.sharma@nectechnologies.in>
+Code-Review+1: iswarya vakati <v.iswarya@nectechnologies.in>
+Code-Review+1: bhavani <bhavani.r@nectechnologies.in>
+Code-Review+2: Kaitlin Farr <kaitlin.farr@jhuapl.edu>
+Code-Review+2: Ade Lee <alee@redhat.com>
+Workflow+1: Ade Lee <alee@redhat.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Thu, 23 Feb 2017 22:18:48 +0000
+Reviewed-on: https://review.openstack.org/434110
+Project: openstack/deb-python-barbicanclient
+Branch: refs/heads/master

@@ -1,0 +1,13 @@
+Code-Review+1: Jeremy Liu <liujiong@gohighsec.com>
+Code-Review+2: Dave McCowan <dmccowan@cisco.com>
+Code-Review+1: dane-fichter <dane.fichter@jhuapl.edu>
+Code-Review-1: Nam Nguyen Hoai <namnh@vn.fujitsu.com>
+Code-Review+2: Steve Heyman <steve.heyman@rackspace.com>
+Code-Review+2: Fernando Diaz <diazjf@us.ibm.com>
+Workflow+1: Fernando Diaz <diazjf@us.ibm.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Tue, 28 Mar 2017 20:53:06 +0000
+Reviewed-on: https://review.openstack.org/438098
+Project: openstack/deb-python-barbicanclient
+Branch: refs/heads/master

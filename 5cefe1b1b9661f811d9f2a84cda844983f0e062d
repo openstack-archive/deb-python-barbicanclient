@@ -1,0 +1,8 @@
+Code-Review+2: Dave McCowan <dmccowan@cisco.com>
+Workflow+1: Dave McCowan <dmccowan@cisco.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Tue, 23 May 2017 13:59:06 +0000
+Reviewed-on: https://review.openstack.org/467189
+Project: openstack/deb-python-barbicanclient
+Branch: refs/heads/master

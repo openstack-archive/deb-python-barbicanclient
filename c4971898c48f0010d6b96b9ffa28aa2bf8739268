@@ -1,0 +1,9 @@
+Code-Review+2: Jeremy Liu <liujiong@gohighsec.com>
+Code-Review+2: Kaitlin Farr <kaitlin.farr@jhuapl.edu>
+Workflow+1: Kaitlin Farr <kaitlin.farr@jhuapl.edu>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Thu, 20 Jul 2017 17:57:37 +0000
+Reviewed-on: https://review.openstack.org/484926
+Project: openstack/deb-python-barbicanclient
+Branch: refs/heads/master

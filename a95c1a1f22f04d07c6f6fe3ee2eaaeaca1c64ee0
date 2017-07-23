@@ -1,0 +1,9 @@
+Code-Review+2: Dave McCowan <dmccowan@cisco.com>
+Code-Review+2: Jeremy Liu <liujiong@gohighsec.com>
+Workflow+1: Jeremy Liu <liujiong@gohighsec.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Sun, 23 Jul 2017 03:33:57 +0000
+Reviewed-on: https://review.openstack.org/486040
+Project: openstack/deb-python-barbicanclient
+Branch: refs/heads/master
